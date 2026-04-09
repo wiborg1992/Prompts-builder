@@ -52,10 +52,13 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
         const blob = new Blob([newPrompt.content], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
+        a.style.display = "none";
         a.href = url;
         a.download = `prompt-v${newPrompt.version}-session${sessionId}.txt`;
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     }
   });

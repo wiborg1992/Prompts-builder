@@ -34,6 +34,7 @@ import {
   File as FileIcon,
   X,
   Pencil,
+  ExternalLink,
 } from "lucide-react";
 
 const TypeIcon = ({ type }: { type: string }) => {
@@ -77,6 +78,7 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
   });
 
   const [isAdding, setIsAdding] = useState(false);
+  const [editingItem, setEditingItem] = useState<ContextItem | null>(null);
   const [newType, setNewType] = useState<ContextItemType>("note");
   const [newLabel, setNewLabel] = useState("");
   const [newContent, setNewContent] = useState("");
@@ -135,6 +137,7 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
 
   const handleEdit = (item: ContextItem) => {
     setIsAdding(true);
+    setEditingItem(item);
     setNewType(item.type);
     setNewLabel(item.label || item.filename || "");
     setNewContent(item.content || "");
@@ -295,8 +298,45 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
                     autoFocus
                     data-testid="input-context-content"
                   />
-                ) : (
-                  <div
+                ) : editingItem?.fileUrl ? (
+                  <div className="space-y-3">
+                    <div className="bg-background/70 border border-border/50 rounded-lg p-3 flex items-center gap-3">
+                      {editingItem.type === "image" ? (
+                        <ImageIcon className="w-5 h-5 text-purple-400 shrink-0" />
+                      ) : (
+                        <FileIcon className="w-5 h-5 text-cyan-400 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {editingItem.filename || "Uploaded file"}
+                        </p>
+                        {editingItem.mimeType && (
+                          <p className="text-xs text-muted-foreground">{editingItem.mimeType}</p>
+                        )}
+                      </div>
+                      <a
+                        href={`/api/storage${editingItem.fileUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors shrink-0 font-medium"
+                      >
+                        Åbn fil
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                    {editingItem.type === "image" && (
+                      <div className="rounded-md overflow-hidden bg-background/50 max-h-[180px]">
+                        <img
+                          src={`/api/storage${editingItem.fileUrl}`}
+                          alt={editingItem.filename || "uploaded image"}
+                          className="max-h-[180px] object-contain mx-auto"
+                        />
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground text-center">
+                      Upload en ny fil herunder for at erstatte den eksisterende
+                    </p>
+                    <div
                     className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                       dragOver
                         ? "border-primary bg-primary/10"
@@ -324,6 +364,53 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
                           {newType === "image"
                             ? "Drop images here"
                             : "Drop files here"}
+                        </p>
+                        <p className="text-xs text-muted-foreground/70 mt-1">
+                          or{" "}
+                          <button
+                            className="text-primary underline cursor-pointer"
+                            onClick={() => fileInputRef.current?.click()}
+                            type="button"
+                          >
+                            browse
+                          </button>{" "}
+                          to upload (multiple files supported)
+                        </p>
+                        <p className="text-xs text-muted-foreground/50 mt-2">
+                          {newType === "image"
+                            ? "PNG, JPG, JPEG, WebP"
+                            : "PDF, DOCX, TXT, MD, CSV, JSON"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                      dragOver
+                        ? "border-primary bg-primary/10"
+                        : "border-border/50 bg-background/50"
+                    }`}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    data-testid="upload-dropzone"
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={acceptTypes}
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                      multiple
+                      data-testid="input-file"
+                    />
+                    <div className="space-y-3">
+                      <Upload className="w-10 h-10 mx-auto text-muted-foreground/50" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          {newType === "image" ? "Drop images here" : "Drop files here"}
                         </p>
                         <p className="text-xs text-muted-foreground/70 mt-1">
                           or{" "}
@@ -393,6 +480,7 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
                     variant="ghost"
                     onClick={() => {
                       setIsAdding(false);
+                      setEditingItem(null);
                       setPendingUploads([]);
                     }}
                     disabled={addItem.isPending || pendingUploads.some((u) => u.status === "uploading" || u.status === "saving")}

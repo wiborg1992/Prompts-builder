@@ -256,7 +256,7 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
                           variant="ghost"
                           size="icon"
                           className="w-8 h-8 hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => deletePrompt.mutate({ id: selectedPrompt.id })}
+                          onClick={() => deletePrompt.mutate({ sessionId, id: selectedPrompt.id })}
                           disabled={deletePrompt.isPending}
                           data-testid={`button-delete-prompt-${selectedPrompt.id}`}
                           title="Slet prompt"

@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { 
   useListSessions, 
   useCreateSession, 
@@ -11,7 +11,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Plus, ArrowRight, LayoutTemplate, Layers, MessageSquare, Trash2 } from "lucide-react";
+import { Plus, ArrowRight, LayoutTemplate, Layers, MessageSquare, Trash2, Download } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import {
@@ -26,7 +26,66 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+async function exportSession(session: Session) {
+  const [contextRes, promptsRes, transcriptsRes] = await Promise.all([
+    fetch(`/api/sessions/${session.id}/context`),
+    fetch(`/api/sessions/${session.id}/prompts`),
+    fetch(`/api/sessions/${session.id}/transcripts`),
+  ]);
+
+  const [context, prompts, transcripts] = await Promise.all([
+    contextRes.json(),
+    promptsRes.json(),
+    transcriptsRes.json(),
+  ]);
+
+  const exportData = {
+    session: {
+      id: session.id,
+      title: session.title,
+      description: session.description,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    },
+    exportedAt: new Date().toISOString(),
+    transcript: transcripts.map((s: any) => ({
+      speaker: s.speaker,
+      text: s.text,
+      language: s.language,
+      createdAt: s.createdAt,
+    })),
+    prompts: (prompts as any[])
+      .sort((a: any, b: any) => a.version - b.version)
+      .map((p: any) => ({
+        version: p.version,
+        instruction: p.instruction,
+        content: p.content,
+        createdAt: p.createdAt,
+      })),
+    contextItems: context.map((c: any) => ({
+      type: c.type,
+      label: c.label,
+      content: c.content,
+      filename: c.filename,
+      mimeType: c.mimeType,
+      fileUrl: c.fileUrl,
+      createdAt: c.createdAt,
+    })),
+  };
+
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const slug = session.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+  a.href = url;
+  a.download = `session-${slug}-${session.id}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function SessionCard({ session, onDelete }: { session: Session; onDelete: (id: number) => void }) {
+  const [exporting, setExporting] = useState(false);
+
   const { data: summary } = useGetSessionSummary(session.id, {
     query: {
       enabled: true,
@@ -34,13 +93,24 @@ function SessionCard({ session, onDelete }: { session: Session; onDelete: (id: n
     }
   });
 
+  const handleExport = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setExporting(true);
+    try {
+      await exportSession(session);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="relative group">
       <Link href={`/sessions/${session.id}`} className="block">
         <Card className="h-full border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-md bg-card/50 backdrop-blur-sm relative overflow-hidden flex flex-col" data-testid={`card-session-${session.id}`}>
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
           <CardHeader className="flex-none pb-2">
-            <CardTitle className="text-xl pr-8">{session.title}</CardTitle>
+            <CardTitle className="text-xl pr-16">{session.title}</CardTitle>
             <CardDescription className="line-clamp-1 h-5">
               {session.description || "No description"}
             </CardDescription>
@@ -89,18 +159,29 @@ function SessionCard({ session, onDelete }: { session: Session; onDelete: (id: n
         </Card>
       </Link>
 
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onDelete(session.id);
-        }}
-        className="absolute top-3 right-3 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 border border-border/50 text-muted-foreground hover:text-destructive hover:border-destructive/50 hover:bg-destructive/5"
-        title="Slet session"
-        data-testid={`button-delete-session-${session.id}`}
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="p-1.5 rounded-md bg-background/80 border border-border/50 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 disabled:opacity-50"
+          title="Eksporter session"
+          data-testid={`button-export-session-${session.id}`}
+        >
+          <Download className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete(session.id);
+          }}
+          className="p-1.5 rounded-md bg-background/80 border border-border/50 text-muted-foreground hover:text-destructive hover:border-destructive/50 hover:bg-destructive/5"
+          title="Slet session"
+          data-testid={`button-delete-session-${session.id}`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 }

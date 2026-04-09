@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   useListContextItems,
   getListContextItemsQueryKey,
   useAddContextItem,
   useDeleteContextItem,
   getGetSessionSummaryQueryKey,
+  useTranscribeAudio,
   ContextItemType,
   ContextItem
 } from "@workspace/api-client-react";
@@ -21,8 +22,8 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trash2, FileText, Image as ImageIcon, MessageSquare, Plus, FileQuestion, Type } from "lucide-react";
-import { format } from "date-fns";
+import { Trash2, FileText, Image as ImageIcon, MessageSquare, Plus, FileQuestion, Type, Mic, MicOff, Loader2 } from "lucide-react";
+import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 
 const TypeIcon = ({ type }: { type: ContextItemType }) => {
   switch (type) {
@@ -48,6 +49,12 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
   const [newType, setNewType] = useState<ContextItemType>("note");
   const [newLabel, setNewLabel] = useState("");
   const [newContent, setNewContent] = useState("");
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+
+  const { isRecording, isProcessing, startRecording, stopRecording, error: recorderError } = useVoiceRecorder();
+
+  const transcribeAudio = useTranscribeAudio();
 
   const addItem = useAddContextItem({
     mutation: {
@@ -84,20 +91,117 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
   };
 
   const handleDelete = (id: number) => {
-    deleteItem.mutate({ id });
+    deleteItem.mutate({ sessionId, id });
   };
+
+  const handleRecordToggle = useCallback(async () => {
+    setTranscriptionError(null);
+
+    if (isRecording) {
+      const blob = await stopRecording();
+      if (!blob) return;
+
+      setIsTranscribing(true);
+
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            const base64 = result.split(",")[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(blob);
+        const base64Audio = await base64Promise;
+
+        transcribeAudio.mutate(
+          { data: { audio: base64Audio, mimetype: blob.type } },
+          {
+            onSuccess: (result) => {
+              const transcript = result.transcript;
+              if (transcript && transcript.trim()) {
+                addItem.mutate({
+                  sessionId,
+                  data: {
+                    type: "transcript" as ContextItemType,
+                    label: `Voice recording`,
+                    content: transcript.trim()
+                  }
+                });
+              } else {
+                setTranscriptionError("No speech detected. Try speaking closer to the microphone.");
+              }
+              setIsTranscribing(false);
+            },
+            onError: () => {
+              setTranscriptionError("Transcription failed. Please try again.");
+              setIsTranscribing(false);
+            }
+          }
+        );
+      } catch {
+        setTranscriptionError("Failed to process audio. Please try again.");
+        setIsTranscribing(false);
+      }
+    } else {
+      await startRecording();
+    }
+  }, [isRecording, stopRecording, startRecording, transcribeAudio, addItem, sessionId]);
+
+  const voiceError = recorderError || transcriptionError;
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex-none p-4 border-b border-border bg-card/30 flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground" data-testid="heading-context">Context Workbench</h2>
-        {!isAdding && (
-          <Button variant="secondary" size="sm" onClick={() => setIsAdding(true)} data-testid="button-add-context">
-            <Plus className="w-4 h-4 mr-1" />
-            Add Context
+        <div className="flex items-center gap-2">
+          <Button
+            variant={isRecording ? "destructive" : "secondary"}
+            size="sm"
+            onClick={handleRecordToggle}
+            disabled={isTranscribing || isProcessing}
+            data-testid="button-record"
+          >
+            {isTranscribing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                Transcribing...
+              </>
+            ) : isRecording ? (
+              <>
+                <MicOff className="w-4 h-4 mr-1" />
+                Stop Recording
+              </>
+            ) : (
+              <>
+                <Mic className="w-4 h-4 mr-1" />
+                Record
+              </>
+            )}
           </Button>
-        )}
+          {!isAdding && (
+            <Button variant="secondary" size="sm" onClick={() => setIsAdding(true)} data-testid="button-add-context">
+              <Plus className="w-4 h-4 mr-1" />
+              Add Context
+            </Button>
+          )}
+        </div>
       </div>
+
+      {isRecording && (
+        <div className="flex-none px-4 py-2 bg-destructive/10 border-b border-destructive/20 flex items-center gap-2" data-testid="recording-indicator">
+          <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+          <span className="text-xs font-medium text-destructive">Recording... Speak now, then press Stop to transcribe.</span>
+        </div>
+      )}
+
+      {voiceError && (
+        <div className="flex-none px-4 py-2 bg-destructive/5 border-b border-destructive/10">
+          <span className="text-xs text-destructive">{voiceError}</span>
+        </div>
+      )}
 
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
@@ -153,7 +257,7 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
           ) : items?.length === 0 && !isAdding ? (
             <div className="text-center py-12 px-4 border border-dashed border-border rounded-xl">
               <p className="text-muted-foreground text-sm">Workbench is empty.</p>
-              <p className="text-muted-foreground text-xs mt-1">Add transcripts, notes, or requirements to build your prompt.</p>
+              <p className="text-muted-foreground text-xs mt-1">Add transcripts, notes, or requirements to build your prompt. Use the Record button to capture voice input.</p>
             </div>
           ) : (
             <div className="space-y-4">

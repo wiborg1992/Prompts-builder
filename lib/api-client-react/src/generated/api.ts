@@ -25,6 +25,8 @@ import type {
   HealthStatus,
   Session,
   SessionSummary,
+  TranscribeAudioBody,
+  TranscriptionResult,
   UpdateContextItemBody,
   UpdatePromptBody,
   UpdateSessionBody,
@@ -1228,6 +1230,92 @@ export const useDeletePrompt = <
   TContext
 > => {
   return useMutation(getDeletePromptMutationOptions(options));
+};
+
+/**
+ * @summary Transcribe audio using Deepgram
+ */
+export const getTranscribeAudioUrl = () => {
+  return `/api/transcribe`;
+};
+
+export const transcribeAudio = async (
+  transcribeAudioBody: TranscribeAudioBody,
+  options?: RequestInit,
+): Promise<TranscriptionResult> => {
+  return customFetch<TranscriptionResult>(getTranscribeAudioUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(transcribeAudioBody),
+  });
+};
+
+export const getTranscribeAudioMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transcribeAudio>>,
+    TError,
+    { data: BodyType<TranscribeAudioBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof transcribeAudio>>,
+  TError,
+  { data: BodyType<TranscribeAudioBody> },
+  TContext
+> => {
+  const mutationKey = ["transcribeAudio"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof transcribeAudio>>,
+    { data: BodyType<TranscribeAudioBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return transcribeAudio(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TranscribeAudioMutationResult = NonNullable<
+  Awaited<ReturnType<typeof transcribeAudio>>
+>;
+export type TranscribeAudioMutationBody = BodyType<TranscribeAudioBody>;
+export type TranscribeAudioMutationError = ErrorType<void>;
+
+/**
+ * @summary Transcribe audio using Deepgram
+ */
+export const useTranscribeAudio = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transcribeAudio>>,
+    TError,
+    { data: BodyType<TranscribeAudioBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof transcribeAudio>>,
+  TError,
+  { data: BodyType<TranscribeAudioBody> },
+  TContext
+> => {
+  return useMutation(getTranscribeAudioMutationOptions(options));
 };
 
 /**

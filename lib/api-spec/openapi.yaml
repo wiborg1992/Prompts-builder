@@ -16,6 +16,8 @@ tags:
     description: Session context items
   - name: prompts
     description: Prompt generation and history
+  - name: transcription
+    description: Audio transcription via Deepgram
 paths:
   /healthz:
     get:
@@ -312,6 +314,27 @@ paths:
         "204":
           description: Deleted
 
+  /transcribe:
+    post:
+      operationId: transcribeAudio
+      tags: [transcription]
+      summary: Transcribe audio using Deepgram
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranscribeAudioBody"
+      responses:
+        "200":
+          description: Transcription result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscriptionResult"
+        "400":
+          description: Missing audio data
+
   /sessions/{sessionId}/summary:
     get:
       operationId: getSessionSummary
@@ -465,6 +488,26 @@ components:
       properties:
         content:
           type: string
+
+    TranscribeAudioBody:
+      type: object
+      properties:
+        audio:
+          type: string
+          description: Base64-encoded audio data
+        mimetype:
+          type: string
+          description: Audio MIME type (e.g. audio/webm)
+      required:
+        - audio
+
+    TranscriptionResult:
+      type: object
+      properties:
+        transcript:
+          type: string
+      required:
+        - transcript
 
     SessionSummary:
       type: object

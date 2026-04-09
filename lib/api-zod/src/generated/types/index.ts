@@ -17,6 +17,8 @@ export * from "./healthStatus";
 export * from "./session";
 export * from "./sessionSummary";
 export * from "./sessionSummaryContextByType";
+export * from "./transcribeAudioBody";
+export * from "./transcriptionResult";
 export * from "./updateContextItemBody";
 export * from "./updatePromptBody";
 export * from "./updateSessionBody";

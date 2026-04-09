@@ -221,6 +221,21 @@ export const DeletePromptParams = zod.object({
 });
 
 /**
+ * @summary Transcribe audio using Deepgram
+ */
+export const TranscribeAudioBody = zod.object({
+  audio: zod.string().describe("Base64-encoded audio data"),
+  mimetype: zod
+    .string()
+    .optional()
+    .describe("Audio MIME type (e.g. audio\/webm)"),
+});
+
+export const TranscribeAudioResponse = zod.object({
+  transcript: zod.string(),
+});
+
+/**
  * @summary Get a quick summary of session context stats
  */
 export const GetSessionSummaryParams = zod.object({

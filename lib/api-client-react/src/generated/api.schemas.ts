@@ -100,6 +100,17 @@ export interface UpdatePromptBody {
   content?: string;
 }
 
+export interface TranscribeAudioBody {
+  /** Base64-encoded audio data */
+  audio: string;
+  /** Audio MIME type (e.g. audio/webm) */
+  mimetype?: string;
+}
+
+export interface TranscriptionResult {
+  transcript: string;
+}
+
 export type SessionSummaryContextByType = { [key: string]: number };
 
 export interface SessionSummary {

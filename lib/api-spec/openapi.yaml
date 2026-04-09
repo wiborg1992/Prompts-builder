@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Context-driven design prompt generation API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: sessions
+    description: Session management
+  - name: context
+    description: Session context items
+  - name: prompts
+    description: Prompt generation and history
 paths:
   /healthz:
     get:
@@ -24,6 +30,307 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: List all sessions
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Create a new session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionBody"
+      responses:
+        "201":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+
+  /sessions/{id}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get a session by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSession
+      tags: [sessions]
+      summary: Update a session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSessionBody"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSession
+      tags: [sessions]
+      summary: Delete a session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /sessions/{sessionId}/context:
+    get:
+      operationId: listContextItems
+      tags: [context]
+      summary: List context items for a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of context items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContextItem"
+    post:
+      operationId: addContextItem
+      tags: [context]
+      summary: Add a context item to a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContextItemBody"
+      responses:
+        "201":
+          description: Created context item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContextItem"
+
+  /sessions/{sessionId}/context/{id}:
+    patch:
+      operationId: updateContextItem
+      tags: [context]
+      summary: Update a context item
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContextItemBody"
+      responses:
+        "200":
+          description: Updated context item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContextItem"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteContextItem
+      tags: [context]
+      summary: Delete a context item
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /sessions/{sessionId}/prompts:
+    get:
+      operationId: listPrompts
+      tags: [prompts]
+      summary: List generated prompts for a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of prompts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeneratedPrompt"
+    post:
+      operationId: generatePrompt
+      tags: [prompts]
+      summary: Generate a new prompt from current session context
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeneratePromptBody"
+      responses:
+        "201":
+          description: Generated prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedPrompt"
+        "400":
+          description: No context available
+
+  /sessions/{sessionId}/prompts/{id}:
+    patch:
+      operationId: updatePrompt
+      tags: [prompts]
+      summary: Update (edit) a generated prompt
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePromptBody"
+      responses:
+        "200":
+          description: Updated prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedPrompt"
+        "404":
+          description: Not found
+    delete:
+      operationId: deletePrompt
+      tags: [prompts]
+      summary: Delete a prompt
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /sessions/{sessionId}/summary:
+    get:
+      operationId: getSessionSummary
+      tags: [sessions]
+      summary: Get a quick summary of session context stats
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSummary"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +341,148 @@ components:
       required:
         - status
 
+    Session:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - createdAt
+        - updatedAt
+
+    CreateSessionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+      required:
+        - title
+
+    UpdateSessionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+
+    ContextItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        type:
+          type: string
+          enum: [transcript, note, file, image, requirement, paste]
+        label:
+          type: ["string", "null"]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sessionId
+        - type
+        - content
+        - createdAt
+
+    CreateContextItemBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [transcript, note, file, image, requirement, paste]
+        label:
+          type: ["string", "null"]
+        content:
+          type: string
+      required:
+        - type
+        - content
+
+    UpdateContextItemBody:
+      type: object
+      properties:
+        label:
+          type: ["string", "null"]
+        content:
+          type: string
+
+    GeneratedPrompt:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        content:
+          type: string
+        instruction:
+          type: ["string", "null"]
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sessionId
+        - content
+        - version
+        - createdAt
+        - updatedAt
+
+    GeneratePromptBody:
+      type: object
+      properties:
+        instruction:
+          type: ["string", "null"]
+          description: Optional user instruction to guide the prompt generation
+
+    UpdatePromptBody:
+      type: object
+      properties:
+        content:
+          type: string
+
+    SessionSummary:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+        contextCount:
+          type: integer
+        promptCount:
+          type: integer
+        contextByType:
+          type: object
+          additionalProperties:
+            type: integer
+        latestPromptPreview:
+          type: ["string", "null"]
+      required:
+        - sessionId
+        - contextCount
+        - promptCount
+        - contextByType

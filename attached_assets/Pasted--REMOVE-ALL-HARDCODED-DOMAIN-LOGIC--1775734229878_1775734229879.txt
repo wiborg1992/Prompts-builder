@@ -1,0 +1,107 @@
+-----------------------------------
+REMOVE ALL HARDCODED DOMAIN LOGIC
+-----------------------------------
+ 
+This is critical.
+ 
+The new app must NOT contain hardcoded domain knowledge, hardcoded design assumptions, hardcoded product understanding, or hidden prompt building logic based on previous cases.
+ 
+Right now, parts of the existing app appear to contain built in assumptions, example assets, and domain specific logic tied to earlier use cases such as Grundfos, system families, product structures, interface expectations, and other test context.
+ 
+That must be removed completely from the new product.
+ 
+The new app should be context driven, not hardcoded.
+ 
+This means:
+ 
+- no built in understanding of one specific company, product, interface family, or domain
+- no hardcoded references to Grundfos or any other prior case
+- no baked in test assets that influence prompt generation
+- no hidden fallback logic that injects product assumptions into the generated prompt
+- no prewritten system knowledge that shapes design output without the user providing it
+- no domain specific prompt templates that are silently applied in the background
+- no default assumptions about screens, flows, device types, user roles, or system architecture unless the user provides that context in the current session
+ 
+The system must instead rely on user supplied context.
+ 
+-----------------------------------
+CONTEXT MUST COME FROM THE USER
+-----------------------------------
+ 
+The app should understand the problem based on what the user actively provides in the current session.
+ 
+That context can come from:
+ 
+- live spoken input
+- uploaded files
+- screenshots
+- images
+- notes
+- requirement documents
+- pasted text
+- previous prompt drafts within the same session
+- explicit metadata entered by the user
+ 
+If the user does not provide domain context, the system should stay generic and avoid inventing specific product assumptions.
+ 
+If the user uploads context, the system should use that uploaded context as the primary source of understanding.
+ 
+-----------------------------------
+NO HIDDEN PROMPT INTELLIGENCE
+-----------------------------------
+ 
+Do not build hidden background prompt logic that silently inserts old case knowledge.
+ 
+Prompt generation should be transparent and traceable.
+ 
+The generated prompt should be based on:
+- transcript content
+- uploaded context
+- user edits
+- current session data
+ 
+It should not be based on legacy hardcoded knowledge from previous prototypes or earlier experiments.
+ 
+-----------------------------------
+REFRACTOR REQUIREMENT
+-----------------------------------
+ 
+As part of the refactor, audit the codebase and remove or isolate all hardcoded context tied to previous demo cases, including:
+ 
+- company specific terms
+- product specific assumptions
+- system specific logic
+- test assets
+- old example screens
+- old prompt scaffolds
+- old design defaults
+- hidden mappings between certain words and certain interface outputs
+- any logic that assumes a known product family or known business domain
+ 
+If useful for development, such legacy material can be kept only as removable sample data for testing, but it must not influence real prompt generation in production.
+ 
+-----------------------------------
+NEW PRODUCT PRINCIPLE
+-----------------------------------
+ 
+The new product should act like an empty intelligent shell that becomes useful only when the user gives it context.
+ 
+The intelligence should come from:
+- structuring the user's input
+- extracting intent from speech
+- organizing uploaded context
+- composing a better prompt from current session material
+ 
+Not from baked in domain knowledge.
+ 
+-----------------------------------
+SUCCESS CRITERIA FOR THIS PART
+-----------------------------------
+ 
+This part of the refactor is successful if:
+ 
+- the app no longer contains hidden domain assumptions from old cases
+- prompt generation is driven by current session context
+- uploaded material meaningfully shapes the output
+- the system stays generic when no specific context is provided
+- old assets and company specific logic do not leak into the generated prompt

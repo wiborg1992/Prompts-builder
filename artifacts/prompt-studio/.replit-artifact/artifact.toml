@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Prompt Studio"
+version = "1.0.0"
+id = "artifacts/prompt-studio"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20931
+
+[services.development]
+run = "pnpm --filter @workspace/prompt-studio run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/prompt-studio", "run", "build" ]
+publicDir = "artifacts/prompt-studio/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20931"
+BASE_PATH = "/"

@@ -21,8 +21,6 @@ const PDF_MIME_TYPES = new Set(["application/pdf"]);
 
 const DOCX_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/msword",
-  "application/vnd.ms-word",
 ]);
 
 const MAX_EXTRACTED_LENGTH = 50000;
@@ -30,7 +28,6 @@ const MAX_EXTRACTED_LENGTH = 50000;
 const EXT_TO_MIME: Record<string, string> = {
   pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  doc: "application/msword",
   txt: "text/plain",
   md: "text/markdown",
   markdown: "text/markdown",
@@ -57,10 +54,6 @@ function mimeFromMagicBytes(buffer: Buffer): string | null {
 
   if (b0 === 0x50 && b1 === 0x4B && b2 === 0x03 && b3 === 0x04) {
     return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  }
-
-  if (b0 === 0xD0 && b1 === 0xCF && b2 === 0x11 && b3 === 0xE0) {
-    return "application/msword";
   }
 
   const sampleLength = Math.min(512, buffer.length);

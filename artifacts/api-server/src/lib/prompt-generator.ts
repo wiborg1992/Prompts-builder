@@ -1,5 +1,6 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import type { ContextItem, TranscriptSegment } from "@workspace/db";
+import { extractFileContent } from "./file-content-extractor";
 
 function escapeXmlAttr(value: string): string {
   return value
@@ -149,14 +150,30 @@ export async function generateDesignPrompt(
     sections.push(`<meeting_transcript>\n${transcriptText}\n</meeting_transcript>`);
   }
 
-  for (const item of contextItems) {
+  const fileExtractionPromises = contextItems.map(async (item) => {
+    if ((item.type === "file" || item.type === "image") && item.fileUrl) {
+      return extractFileContent(item.fileUrl, item.mimeType);
+    }
+    return null;
+  });
+  const extractedContents = await Promise.all(fileExtractionPromises);
+
+  for (let i = 0; i < contextItems.length; i++) {
+    const item = contextItems[i];
     const label = item.label ? ` label="${escapeXmlAttr(item.label)}"` : "";
     const typeTag = item.type.toLowerCase();
 
     if ((item.type === "file" || item.type === "image") && item.filename) {
       const fileMeta = `filename="${escapeXmlAttr(item.filename)}"${item.mimeType ? ` mimetype="${escapeXmlAttr(item.mimeType)}"` : ""}`;
-      const description = item.content ? `\n${item.content}` : "";
-      sections.push(`<context_item type="${typeTag}"${label} ${fileMeta}>${description}\n</context_item>`);
+      const extracted = extractedContents[i];
+      let body = "";
+      if (extracted) {
+        body = `\n<file_content>\n${extracted}\n</file_content>`;
+      }
+      if (item.content && item.content !== item.filename) {
+        body += `\n<description>${item.content}</description>`;
+      }
+      sections.push(`<context_item type="${typeTag}"${label} ${fileMeta}>${body}\n</context_item>`);
     } else {
       sections.push(`<context_item type="${typeTag}"${label}>\n${item.content}\n</context_item>`);
     }

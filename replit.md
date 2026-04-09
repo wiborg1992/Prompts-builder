@@ -84,6 +84,7 @@ Key aspects:
 - **PEEM self-evaluation**: The model internally evaluates the prompt across 9 quality axes (clarity, linguistic quality, fairness, accuracy, coherence, relevance, objectivity, clarity, conciseness) before finalizing
 - **Language matching**: Prompt language matches the dominant transcript language (English/Danish)
 - **XML-structured context**: Context items and transcripts are passed in XML tags for clear delimiting
+- **File content extraction**: Uploaded PDFs and text files are downloaded from object storage and their text content is extracted at prompt generation time. PDF parsing via `pdf-parse` (externalized in esbuild). Text-based formats (txt, md, csv, html, json, xml) read as UTF-8. Max 50k chars per file.
 - **max_completion_tokens**: 4096 (increased from 2048 to accommodate the richer structure)
 
 ## Design Principles

@@ -1,3 +1,4 @@
+import JSZip from "jszip";
 import { Link } from "wouter";
 import { 
   useListSessions, 
@@ -39,46 +40,53 @@ async function exportSession(session: Session) {
     transcriptsRes.json(),
   ]);
 
-  const exportData = {
-    session: {
-      id: session.id,
-      title: session.title,
-      description: session.description,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-    },
-    exportedAt: new Date().toISOString(),
-    transcript: transcripts.map((s: any) => ({
-      speaker: s.speaker,
-      text: s.text,
-      language: s.language,
-      createdAt: s.createdAt,
-    })),
-    prompts: (prompts as any[])
-      .sort((a: any, b: any) => a.version - b.version)
-      .map((p: any) => ({
-        version: p.version,
-        instruction: p.instruction,
-        content: p.content,
-        createdAt: p.createdAt,
-      })),
-    contextItems: context.map((c: any) => ({
-      type: c.type,
-      label: c.label,
-      content: c.content,
-      filename: c.filename,
-      mimeType: c.mimeType,
-      fileUrl: c.fileUrl,
-      createdAt: c.createdAt,
-    })),
-  };
-
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
+  const zip = new JSZip();
   const slug = session.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+
+  // --- transkription.txt ---
+  const transcriptLines = (transcripts as any[]).map(
+    (s: any) => `[${s.speaker}] ${s.text}`
+  );
+  const transcriptText = transcriptLines.length > 0
+    ? transcriptLines.join("\n\n")
+    : "(Ingen transkription)";
+  zip.file("transkription.txt", transcriptText);
+
+  // --- prompts.txt ---
+  const sortedPrompts = (prompts as any[]).sort((a: any, b: any) => a.version - b.version);
+  const promptsText = sortedPrompts.length > 0
+    ? sortedPrompts.map((p: any) => {
+        const header = `=== VERSION ${p.version} — ${new Date(p.createdAt).toLocaleString("da-DK")}${p.instruction ? ` (Mål: ${p.instruction})` : ""} ===`;
+        return `${header}\n\n${p.content}`;
+      }).join("\n\n\n")
+    : "(Ingen prompts genereret)";
+  zip.file("prompts.txt", promptsText);
+
+  // --- uploadede filer ---
+  const fileItems = (context as any[]).filter(
+    (c: any) => (c.type === "file" || c.type === "image") && c.fileUrl && c.filename
+  );
+
+  const filesFolder = zip.folder("filer");
+  await Promise.all(
+    fileItems.map(async (c: any) => {
+      try {
+        const res = await fetch(c.fileUrl);
+        if (res.ok) {
+          const arrayBuffer = await res.arrayBuffer();
+          filesFolder!.file(c.filename, arrayBuffer);
+        }
+      } catch {
+        // spring over filer der ikke kan hentes
+      }
+    })
+  );
+
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement("a");
   a.href = url;
-  a.download = `session-${slug}-${session.id}.json`;
+  a.download = `session-${slug}-${session.id}.zip`;
   a.click();
   URL.revokeObjectURL(url);
 }

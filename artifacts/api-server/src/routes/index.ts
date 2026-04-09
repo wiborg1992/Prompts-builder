@@ -5,6 +5,7 @@ import contextRouter from "./context";
 import promptsRouter from "./prompts";
 import transcribeRouter from "./transcribe";
 import storageRouter from "./storage";
+import deepgramTokenRouter from "./deepgram-token";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(contextRouter);
 router.use(promptsRouter);
 router.use(transcribeRouter);
 router.use(storageRouter);
+router.use(deepgramTokenRouter);
 
 export default router;

@@ -16,9 +16,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 - **AI**: OpenAI via user's own `OPENAI_API_KEY`
-- **Speech-to-text**: Deepgram SDK v5 (`nova-3` model) via `DEEPGRAM_API_KEY`
+- **Speech-to-text**: Deepgram direct browser-to-API WebSocket (nova-3 for English, nova-2 for Danish) via `DEEPGRAM_API_KEY`
 - **Object Storage**: Google Cloud Storage via Replit App Storage (presigned URL uploads)
-- **WebSocket**: `ws` library for live transcription streaming
 
 ## Artifacts
 
@@ -27,8 +26,10 @@ Context-driven design prompt generator with recording-first workflow. Users crea
 
 - **No hardcoded domain knowledge** — all prompt generation is derived from user-supplied context
 - **Recording-first layout**: Session workspace opens to the Record tab by default
-- **Live transcription**: WebSocket streaming to Deepgram or batch to OpenAI
-- **Language support**: English and Danish
+- **Live transcription**: Direct browser-to-Deepgram WebSocket with speaker diarization, filler word removal, smart buffering (14s silence / 90s max), and workshop-optimized settings
+- **Language support**: English (nova-3) and Danish (nova-2)
+- **Auto-generate**: Stop recording automatically saves transcript and generates a prompt
+- **Speaker identification**: Multiple speakers detected and labeled in the feed
 - **File uploads**: Real file/image uploads via presigned URLs to GCS
 - **Tabs**: Record (primary) | Context | Prompts
 - **Frontend**: React + Vite + TanStack Query + Shadcn UI + Tailwind
@@ -43,8 +44,8 @@ Express 5 backend with all routes:
 - `PATCH/DELETE /api/sessions/:sessionId/context/:id`
 - `GET/POST /api/sessions/:sessionId/prompts` — prompt generation via AI
 - `PATCH/DELETE /api/sessions/:sessionId/prompts/:id`
+- `GET /api/deepgram-token` — returns Deepgram API key for direct browser-to-Deepgram connection
 - `POST /api/transcribe` — batch audio transcription (Deepgram or OpenAI, language-aware)
-- `WS /api/ws/transcribe` — WebSocket live transcription (Deepgram streaming or OpenAI chunked)
 - `POST /api/storage/uploads/request-url` — presigned URL for file upload
 - `GET /api/storage/objects/*` — serve uploaded objects
 - `GET /api/storage/public-objects/*` — serve public assets

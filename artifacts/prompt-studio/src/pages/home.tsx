@@ -1,7 +1,8 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { 
   useListSessions, 
   useCreateSession, 
+  useDeleteSession,
   getListSessionsQueryKey,
   useGetSessionSummary,
   getGetSessionSummaryQueryKey,
@@ -10,7 +11,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Plus, ArrowRight, LayoutTemplate, Layers, MessageSquare } from "lucide-react";
+import { Plus, ArrowRight, LayoutTemplate, Layers, MessageSquare, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import {
@@ -25,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-function SessionCard({ session }: { session: Session }) {
+function SessionCard({ session, onDelete }: { session: Session; onDelete: (id: number) => void }) {
   const { data: summary } = useGetSessionSummary(session.id, {
     query: {
       enabled: true,
@@ -34,68 +35,86 @@ function SessionCard({ session }: { session: Session }) {
   });
 
   return (
-    <Link href={`/sessions/${session.id}`} className="block group">
-      <Card className="h-full border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-md bg-card/50 backdrop-blur-sm relative overflow-hidden flex flex-col" data-testid={`card-session-${session.id}`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-        <CardHeader className="flex-none pb-2">
-          <CardTitle className="text-xl">{session.title}</CardTitle>
-          <CardDescription className="line-clamp-1 h-5">
-            {session.description || "No description"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col gap-4 justify-between pb-2">
-          <div className="flex flex-col gap-3 text-sm text-muted-foreground">
-            {summary ? (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5 bg-background/50 px-2.5 py-1 rounded-md border border-border/30">
-                  <Layers className="w-3.5 h-3.5 text-primary" />
-                  <span className="font-medium text-foreground">{summary.contextCount}</span>
-                  <span className="text-xs">Context</span>
+    <div className="relative group">
+      <Link href={`/sessions/${session.id}`} className="block">
+        <Card className="h-full border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-md bg-card/50 backdrop-blur-sm relative overflow-hidden flex flex-col" data-testid={`card-session-${session.id}`}>
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          <CardHeader className="flex-none pb-2">
+            <CardTitle className="text-xl pr-8">{session.title}</CardTitle>
+            <CardDescription className="line-clamp-1 h-5">
+              {session.description || "No description"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col gap-4 justify-between pb-2">
+            <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+              {summary ? (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5 bg-background/50 px-2.5 py-1 rounded-md border border-border/30">
+                    <Layers className="w-3.5 h-3.5 text-primary" />
+                    <span className="font-medium text-foreground">{summary.contextCount}</span>
+                    <span className="text-xs">Context</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-background/50 px-2.5 py-1 rounded-md border border-border/30">
+                    <MessageSquare className="w-3.5 h-3.5 text-primary" />
+                    <span className="font-medium text-foreground">{summary.promptCount}</span>
+                    <span className="text-xs">Prompts</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 bg-background/50 px-2.5 py-1 rounded-md border border-border/30">
-                  <MessageSquare className="w-3.5 h-3.5 text-primary" />
-                  <span className="font-medium text-foreground">{summary.promptCount}</span>
-                  <span className="text-xs">Prompts</span>
-                </div>
-              </div>
-            ) : (
-              <div className="h-7 w-32 bg-muted/50 rounded-md animate-pulse" />
-            )}
+              ) : (
+                <div className="h-7 w-32 bg-muted/50 rounded-md animate-pulse" />
+              )}
 
-            {summary?.latestPromptPreview ? (
-              <div className="bg-background/80 rounded-md p-3 border border-border/30">
-                <p className="text-xs font-mono text-muted-foreground line-clamp-3 font-sans">
-                  "{summary.latestPromptPreview}"
-                </p>
-              </div>
-            ) : (
-              <div className="text-xs italic text-muted-foreground/60 py-2">
-                No prompt generated yet.
-              </div>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter className="flex-none pt-4 border-t border-border/50 flex justify-between items-center text-primary bg-card/20">
-          <div className="text-xs text-muted-foreground">
-            Updated {format(new Date(session.updatedAt), 'MMM d')}
-          </div>
-          <div className="flex items-center gap-1 text-sm font-medium">
-            Open Workspace
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </CardFooter>
-      </Card>
-    </Link>
+              {summary?.latestPromptPreview ? (
+                <div className="bg-background/80 rounded-md p-3 border border-border/30">
+                  <p className="text-xs font-mono text-muted-foreground line-clamp-3 font-sans">
+                    "{summary.latestPromptPreview}"
+                  </p>
+                </div>
+              ) : (
+                <div className="text-xs italic text-muted-foreground/60 py-2">
+                  No prompt generated yet.
+                </div>
+              )}
+            </div>
+          </CardContent>
+          <CardFooter className="flex-none pt-4 border-t border-border/50 flex justify-between items-center text-primary bg-card/20">
+            <div className="text-xs text-muted-foreground">
+              Updated {format(new Date(session.updatedAt), 'MMM d')}
+            </div>
+            <div className="flex items-center gap-1 text-sm font-medium">
+              Open Workspace
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </CardFooter>
+        </Card>
+      </Link>
+
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onDelete(session.id);
+        }}
+        className="absolute top-3 right-3 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 border border-border/50 text-muted-foreground hover:text-destructive hover:border-destructive/50 hover:bg-destructive/5"
+        title="Slet session"
+        data-testid={`button-delete-session-${session.id}`}
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
   );
 }
 
 export default function Home() {
   const { data: sessions, isLoading } = useListSessions();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
 
   const queryClient = useQueryClient();
+
   const createSession = useCreateSession({
     mutation: {
       onSuccess: () => {
@@ -103,6 +122,15 @@ export default function Home() {
         setIsDialogOpen(false);
         setNewTitle("");
         setNewDescription("");
+      }
+    }
+  });
+
+  const deleteSession = useDeleteSession({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListSessionsQueryKey() });
+        setDeletingId(null);
       }
     }
   });
@@ -118,6 +146,27 @@ export default function Home() {
     });
   };
 
+  const handleDeleteRequest = (id: number) => {
+    setDeletingId(id);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deletingId !== null) {
+      deleteSession.mutate({ id: deletingId });
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!sessions) return;
+    for (const session of sessions) {
+      await fetch(`/api/sessions/${session.id}`, { method: "DELETE" });
+    }
+    queryClient.invalidateQueries({ queryKey: getListSessionsQueryKey() });
+    setIsDeleteAllDialogOpen(false);
+  };
+
+  const sessionToDelete = sessions?.find(s => s.id === deletingId);
+
   return (
     <div className="min-h-screen bg-background p-6 md:p-12 font-sans">
       <div className="max-w-6xl mx-auto space-y-12">
@@ -131,52 +180,67 @@ export default function Home() {
             </p>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-new-session" size="lg" className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow">
-                <Plus className="w-5 h-5" />
-                New Session
+          <div className="flex items-center gap-3">
+            {sessions && sessions.length > 0 && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="gap-2 border-destructive/30 text-destructive hover:bg-destructive/5 hover:border-destructive/60"
+                onClick={() => setIsDeleteAllDialogOpen(true)}
+                data-testid="button-delete-all-sessions"
+              >
+                <Trash2 className="w-4 h-4" />
+                Slet alle
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]" data-testid="dialog-new-session">
-              <form onSubmit={handleCreate}>
-                <DialogHeader>
-                  <DialogTitle>Create New Session</DialogTitle>
-                  <DialogDescription>
-                    Start a new workspace to gather context and generate prompts.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="title">Title</Label>
-                    <Input
-                      id="title"
-                      value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      placeholder="E.g., Mobile Onboarding Flow"
-                      autoFocus
-                      data-testid="input-session-title"
-                    />
+            )}
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-new-session" size="lg" className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow">
+                  <Plus className="w-5 h-5" />
+                  New Session
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]" data-testid="dialog-new-session">
+                <form onSubmit={handleCreate}>
+                  <DialogHeader>
+                    <DialogTitle>Create New Session</DialogTitle>
+                    <DialogDescription>
+                      Start a new workspace to gather context and generate prompts.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="title">Title</Label>
+                      <Input
+                        id="title"
+                        value={newTitle}
+                        onChange={(e) => setNewTitle(e.target.value)}
+                        placeholder="E.g., Mobile Onboarding Flow"
+                        autoFocus
+                        data-testid="input-session-title"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="description">Description (Optional)</Label>
+                      <Input
+                        id="description"
+                        value={newDescription}
+                        onChange={(e) => setNewDescription(e.target.value)}
+                        placeholder="Gathering notes for the mobile app redesign"
+                        data-testid="input-session-description"
+                      />
+                    </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="description">Description (Optional)</Label>
-                    <Input
-                      id="description"
-                      value={newDescription}
-                      onChange={(e) => setNewDescription(e.target.value)}
-                      placeholder="Gathering notes for the mobile app redesign"
-                      data-testid="input-session-description"
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit" disabled={!newTitle.trim() || createSession.isPending} data-testid="button-submit-session">
-                    {createSession.isPending ? "Creating..." : "Create Session"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <DialogFooter>
+                    <Button type="submit" disabled={!newTitle.trim() || createSession.isPending} data-testid="button-submit-session">
+                      {createSession.isPending ? "Creating..." : "Create Session"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </header>
 
         {isLoading ? (
@@ -188,7 +252,7 @@ export default function Home() {
         ) : sessions && sessions.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="list-sessions">
             {sessions.map(session => (
-              <SessionCard key={session.id} session={session} />
+              <SessionCard key={session.id} session={session} onDelete={handleDeleteRequest} />
             ))}
           </div>
         ) : (
@@ -207,6 +271,53 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <Dialog open={deletingId !== null} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Slet session</DialogTitle>
+            <DialogDescription>
+              Er du sikker på, at du vil slette <span className="font-medium text-foreground">"{sessionToDelete?.title}"</span>? Denne handling kan ikke fortrydes.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeletingId(null)}>
+              Annuller
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleteSession.isPending}
+              data-testid="button-confirm-delete-session"
+            >
+              {deleteSession.isPending ? "Sletter..." : "Slet session"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteAllDialogOpen} onOpenChange={setIsDeleteAllDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Slet alle sessions</DialogTitle>
+            <DialogDescription>
+              Er du sikker på, at du vil slette alle <span className="font-medium text-foreground">{sessions?.length} sessions</span>? Denne handling kan ikke fortrydes.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsDeleteAllDialogOpen(false)}>
+              Annuller
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAll}
+              data-testid="button-confirm-delete-all-sessions"
+            >
+              Slet alle
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

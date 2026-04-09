@@ -1,11 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
-interface TranscriptChunk {
-  text: string;
-  isFinal: boolean;
-  timestamp: number;
-}
-
 interface UseLiveTranscriptionOptions {
   provider: "deepgram" | "openai";
   language: string;
@@ -21,7 +15,7 @@ interface UseLiveTranscriptionReturn {
   startRecording: () => Promise<void>;
   pauseRecording: () => void;
   resumeRecording: () => void;
-  stopRecording: () => Promise<string>;
+  stopRecording: () => string;
   elapsedSeconds: number;
 }
 
@@ -41,9 +35,8 @@ export function useLiveTranscription(options: UseLiveTranscriptionOptions): UseL
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const chunksRef = useRef<TranscriptChunk[]>([]);
   const isPausedRef = useRef(false);
-  const stopResolveRef = useRef<((transcript: string) => void) | null>(null);
+  const transcriptRef = useRef("");
 
   useEffect(() => {
     return () => {
@@ -65,11 +58,11 @@ export function useLiveTranscription(options: UseLiveTranscriptionOptions): UseL
       sourceRef.current = null;
     }
     if (audioContextRef.current) {
-      audioContextRef.current.close();
+      audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
     }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
+      try { mediaRecorderRef.current.stop(); } catch {}
     }
     mediaRecorderRef.current = null;
     if (streamRef.current) {
@@ -77,7 +70,12 @@ export function useLiveTranscription(options: UseLiveTranscriptionOptions): UseL
       streamRef.current = null;
     }
     if (wsRef.current) {
-      wsRef.current.close();
+      try {
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: "stop" }));
+        }
+        wsRef.current.close();
+      } catch {}
       wsRef.current = null;
     }
   }, []);
@@ -87,7 +85,7 @@ export function useLiveTranscription(options: UseLiveTranscriptionOptions): UseL
     setFinalTranscript("");
     setInterimText("");
     setElapsedSeconds(0);
-    chunksRef.current = [];
+    transcriptRef.current = "";
     isPausedRef.current = false;
 
     try {
@@ -124,23 +122,19 @@ export function useLiveTranscription(options: UseLiveTranscriptionOptions): UseL
           const msg = JSON.parse(event.data);
           if (msg.type === "transcript") {
             if (msg.isFinal) {
-              chunksRef.current.push({ text: msg.text, isFinal: true, timestamp: Date.now() });
-              setFinalTranscript(prev => {
-                const separator = prev ? " " : "";
-                return prev + separator + msg.text;
-              });
+              transcriptRef.current = transcriptRef.current
+                ? transcriptRef.current + " " + msg.text
+                : msg.text;
+              setFinalTranscript(transcriptRef.current);
               setInterimText("");
             } else {
               setInterimText(msg.text);
             }
           } else if (msg.type === "error") {
+            console.error("[Transcription error]", msg.message);
             setError(msg.message);
-          } else if (msg.type === "stopped") {
-            if (stopResolveRef.current) {
-              const transcript = chunksRef.current.map(c => c.text).join(" ");
-              stopResolveRef.current(transcript);
-              stopResolveRef.current = null;
-            }
+          } else if (msg.type === "dg_connected") {
+            console.log("[Deepgram] Connected");
           }
         } catch {
           // ignore
@@ -149,11 +143,6 @@ export function useLiveTranscription(options: UseLiveTranscriptionOptions): UseL
 
       ws.onclose = () => {
         setIsConnected(false);
-        if (stopResolveRef.current) {
-          const transcript = chunksRef.current.map(c => c.text).join(" ");
-          stopResolveRef.current(transcript);
-          stopResolveRef.current = null;
-        }
       };
 
       ws.onerror = () => {
@@ -236,32 +225,13 @@ export function useLiveTranscription(options: UseLiveTranscriptionOptions): UseL
     }, 1000);
   }, []);
 
-  const stopRecording = useCallback(async (): Promise<string> => {
-    return new Promise((resolve) => {
-      stopResolveRef.current = resolve;
-
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: "stop" }));
-      }
-
-      const timeout = setTimeout(() => {
-        if (stopResolveRef.current) {
-          const transcript = chunksRef.current.map(c => c.text).join(" ");
-          stopResolveRef.current(transcript);
-          stopResolveRef.current = null;
-        }
-      }, 10000);
-
-      const origResolve = stopResolveRef.current;
-      stopResolveRef.current = (transcript: string) => {
-        clearTimeout(timeout);
-        cleanup();
-        setIsRecording(false);
-        setIsPaused(false);
-        setInterimText("");
-        origResolve(transcript);
-      };
-    });
+  const stopRecording = useCallback((): string => {
+    const transcript = transcriptRef.current;
+    cleanup();
+    setIsRecording(false);
+    setIsPaused(false);
+    setInterimText("");
+    return transcript;
   }, [cleanup]);
 
   return {

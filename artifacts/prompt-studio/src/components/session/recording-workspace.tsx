@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { useLiveTranscription } from "@/hooks/use-live-transcription";
 import {
   useAddContextItem,
+  useGeneratePrompt,
   getListContextItemsQueryKey,
   getGetSessionSummaryQueryKey,
+  getListPromptsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -25,7 +26,7 @@ import {
   Languages,
   Radio,
   Loader2,
-  Save,
+  Sparkles,
 } from "lucide-react";
 
 function formatTime(seconds: number): string {
@@ -34,14 +35,15 @@ function formatTime(seconds: number): string {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
-type RecordingState = "idle" | "recording" | "paused" | "stopped";
+type WorkflowState = "idle" | "recording" | "paused" | "processing";
 
 export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
   const queryClient = useQueryClient();
   const [provider, setProvider] = useState<"deepgram" | "openai">("deepgram");
   const [language, setLanguage] = useState("en");
-  const [recordingState, setRecordingState] = useState<RecordingState>("idle");
-  const [savedTranscript, setSavedTranscript] = useState<string | null>(null);
+  const [workflowState, setWorkflowState] = useState<WorkflowState>("idle");
+  const [processingStep, setProcessingStep] = useState("");
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -57,23 +59,27 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
     elapsedSeconds,
   } = useLiveTranscription({ provider, language });
 
-  const addItem = useAddContextItem({
+  const addItem = useAddContextItem();
+  const generatePrompt = useGeneratePrompt({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListContextItemsQueryKey(sessionId) });
+        queryClient.invalidateQueries({ queryKey: getListPromptsQueryKey(sessionId) });
         queryClient.invalidateQueries({ queryKey: getGetSessionSummaryQueryKey(sessionId) });
-        setSavedTranscript(null);
+        setWorkflowState("idle");
+        setProcessingStep("");
+      },
+      onError: () => {
+        setWorkflowState("idle");
+        setProcessingStep("");
       },
     },
   });
 
   useEffect(() => {
     if (isRecording && !isPaused) {
-      setRecordingState("recording");
+      setWorkflowState("recording");
     } else if (isPaused) {
-      setRecordingState("paused");
-    } else if (!isRecording && recordingState !== "idle" && recordingState !== "stopped") {
-      setRecordingState("stopped");
+      setWorkflowState("paused");
     }
   }, [isRecording, isPaused]);
 
@@ -82,7 +88,7 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
   }, [finalTranscript, interimText]);
 
   const handleStart = async () => {
-    setSavedTranscript(null);
+    setWorkflowState("recording");
     await startRecording();
   };
 
@@ -95,56 +101,71 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
   };
 
   const handleStop = async () => {
-    const transcript = await stopRecording();
-    setRecordingState("stopped");
-    if (transcript.trim()) {
-      setSavedTranscript(transcript.trim());
+    const transcript = stopRecording();
+    if (!transcript.trim()) {
+      setWorkflowState("idle");
+      return;
+    }
+
+    setWorkflowState("processing");
+    setProcessingStep("Saving transcript...");
+
+    try {
+      await addItem.mutateAsync({
+        sessionId,
+        data: {
+          type: "transcript" as const,
+          label: `Recording — ${provider === "deepgram" ? "Deepgram" : "OpenAI"} (${language === "da" ? "Danish" : "English"})`,
+          content: transcript.trim(),
+        },
+      });
+
+      queryClient.invalidateQueries({ queryKey: getListContextItemsQueryKey(sessionId) });
+      queryClient.invalidateQueries({ queryKey: getGetSessionSummaryQueryKey(sessionId) });
+
+      setProcessingStep("Generating prompt from transcript...");
+
+      generatePrompt.mutate({
+        sessionId,
+        data: {
+          instruction: undefined,
+        },
+      });
+    } catch {
+      setWorkflowState("idle");
+      setProcessingStep("");
     }
   };
 
-  const handleSaveTranscript = () => {
-    const text = savedTranscript || finalTranscript;
-    if (!text.trim()) return;
-    addItem.mutate({
-      sessionId,
-      data: {
-        type: "transcript",
-        label: `Recording — ${provider === "deepgram" ? "Deepgram" : "OpenAI"} (${language === "da" ? "Danish" : "English"})`,
-        content: text.trim(),
-      },
-    });
-    setRecordingState("idle");
-    setSavedTranscript(null);
-  };
-
-  const handleNewRecording = () => {
-    setRecordingState("idle");
-    setSavedTranscript(null);
-  };
-
-  const displayTranscript = savedTranscript || finalTranscript;
-  const isIdle = recordingState === "idle";
-  const isStopped = recordingState === "stopped";
+  const isIdle = workflowState === "idle";
+  const isActive = workflowState === "recording";
+  const isPausedState = workflowState === "paused";
+  const isProcessing = workflowState === "processing";
 
   return (
     <div className="flex flex-col h-full" data-testid="recording-workspace">
       <div className="flex-none p-4 border-b border-border bg-card/30">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${isRecording && !isPaused ? "bg-red-500 animate-pulse" : isPaused ? "bg-amber-500" : isStopped ? "bg-blue-500" : "bg-zinc-600"}`} />
+            <div className={`w-3 h-3 rounded-full ${
+              isActive ? "bg-red-500 animate-pulse" : 
+              isPausedState ? "bg-amber-500" : 
+              isProcessing ? "bg-blue-500 animate-pulse" :
+              "bg-zinc-600"
+            }`} />
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-              {isRecording && !isPaused ? "Recording" : isPaused ? "Paused" : isStopped ? "Recording Complete" : "Ready"}
+              {isActive ? "Recording" : isPausedState ? "Paused" : isProcessing ? processingStep : "Ready"}
             </span>
-            {(isRecording || isPaused) && (
+            {(isActive || isPausedState) && (
               <span className="text-sm font-mono text-foreground">{formatTime(elapsedSeconds)}</span>
             )}
           </div>
 
-          {(isIdle || isStopped) && (
+          {isIdle && (
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Languages className="w-4 h-4 text-muted-foreground" />
-                <Select value={language} onValueChange={setLanguage} disabled={isRecording}>
+                <Select value={language} onValueChange={setLanguage}>
                   <SelectTrigger className="w-[130px] h-8 text-xs" data-testid="select-language">
                     <SelectValue />
                   </SelectTrigger>
@@ -157,7 +178,7 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
 
               <div className="flex items-center gap-2">
                 <Radio className="w-4 h-4 text-muted-foreground" />
-                <Select value={provider} onValueChange={(v) => setProvider(v as "deepgram" | "openai")} disabled={isRecording}>
+                <Select value={provider} onValueChange={(v) => setProvider(v as "deepgram" | "openai")}>
                   <SelectTrigger className="w-[130px] h-8 text-xs" data-testid="select-provider">
                     <SelectValue />
                   </SelectTrigger>
@@ -184,7 +205,7 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
             </Button>
           )}
 
-          {isRecording && !isPaused && (
+          {isActive && (
             <>
               <Button
                 size="lg"
@@ -204,12 +225,12 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
                 data-testid="button-stop"
               >
                 <Square className="w-5 h-5 mr-2" />
-                Stop
+                Stop & Generate
               </Button>
             </>
           )}
 
-          {isPaused && (
+          {isPausedState && (
             <>
               <Button
                 size="lg"
@@ -228,50 +249,16 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
                 data-testid="button-stop-paused"
               >
                 <Square className="w-5 h-5 mr-2" />
-                Stop
+                Stop & Generate
               </Button>
             </>
           )}
 
-          {isStopped && displayTranscript && (
-            <>
-              <Button
-                size="lg"
-                className="h-12 px-6 rounded-full"
-                onClick={handleSaveTranscript}
-                disabled={addItem.isPending}
-                data-testid="button-save-transcript"
-              >
-                {addItem.isPending ? (
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-5 h-5 mr-2" />
-                )}
-                Save to Context
-              </Button>
-              <Button
-                size="lg"
-                variant="secondary"
-                className="h-12 px-6 rounded-full"
-                onClick={handleNewRecording}
-                data-testid="button-new-recording"
-              >
-                <Mic className="w-5 h-5 mr-2" />
-                New Recording
-              </Button>
-            </>
-          )}
-
-          {isStopped && !displayTranscript && (
-            <Button
-              size="lg"
-              className="h-14 px-8 text-base rounded-full bg-red-600 hover:bg-red-700 text-white"
-              onClick={handleStart}
-              data-testid="button-restart-recording"
-            >
-              <Mic className="w-5 h-5 mr-2" />
-              Start Recording
-            </Button>
+          {isProcessing && (
+            <div className="flex items-center gap-3 text-primary">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm font-medium">{processingStep}</span>
+            </div>
           )}
         </div>
       </div>
@@ -282,9 +269,9 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
         </div>
       )}
 
-      <ScrollArea className="flex-1 p-6">
+      <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
         <div className="max-w-3xl mx-auto">
-          {!displayTranscript && !interimText && isIdle && (
+          {!finalTranscript && !interimText && isIdle && (
             <div className="text-center py-20">
               <MicOff className="w-16 h-16 mx-auto text-zinc-700 mb-4" />
               <p className="text-lg text-muted-foreground">Ready to record</p>
@@ -295,16 +282,16 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
             </div>
           )}
 
-          {!displayTranscript && !interimText && isRecording && (
+          {!finalTranscript && !interimText && isActive && (
             <div className="text-center py-20">
-              <div className="flex items-center justify-center gap-1 mb-4">
-                {[...Array(5)].map((_, i) => (
+              <div className="flex items-center justify-center gap-1.5 mb-4">
+                {[...Array(7)].map((_, i) => (
                   <div
                     key={i}
                     className="w-1 bg-red-500 rounded-full animate-pulse"
                     style={{
-                      height: `${20 + Math.random() * 30}px`,
-                      animationDelay: `${i * 0.15}s`,
+                      height: `${12 + Math.random() * 28}px`,
+                      animationDelay: `${i * 0.12}s`,
                     }}
                   />
                 ))}
@@ -316,18 +303,30 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
             </div>
           )}
 
-          {(displayTranscript || interimText) && (
-            <Card className="border-border/50 bg-card/30">
-              <CardContent className="p-6">
-                <p className="text-base leading-relaxed text-foreground whitespace-pre-wrap font-sans">
-                  {displayTranscript}
-                  {interimText && (
-                    <span className="text-muted-foreground/60 italic"> {interimText}</span>
-                  )}
+          {isProcessing && finalTranscript && (
+            <div className="space-y-4">
+              <div className="p-5 rounded-xl bg-card/50 border border-border/50">
+                <p className="text-base leading-relaxed text-foreground whitespace-pre-wrap">
+                  {finalTranscript}
                 </p>
-                <div ref={transcriptEndRef} />
-              </CardContent>
-            </Card>
+              </div>
+              <div className="flex items-center justify-center gap-3 py-6 text-primary animate-in fade-in">
+                <Sparkles className="w-5 h-5 animate-pulse" />
+                <span className="text-sm font-medium">{processingStep}</span>
+              </div>
+            </div>
+          )}
+
+          {(finalTranscript || interimText) && !isProcessing && (
+            <div className="space-y-1">
+              <p className="text-base leading-relaxed text-foreground whitespace-pre-wrap">
+                {finalTranscript}
+                {interimText && (
+                  <span className="text-muted-foreground/50 italic"> {interimText}</span>
+                )}
+              </p>
+              <div ref={transcriptEndRef} />
+            </div>
           )}
         </div>
       </ScrollArea>

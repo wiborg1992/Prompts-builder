@@ -48,6 +48,14 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
         setInstruction("");
         setSelectedId(newPrompt.id);
         setEditingId(null);
+
+        const blob = new Blob([newPrompt.content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `prompt-v${newPrompt.version}-session${sessionId}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
       }
     }
   });

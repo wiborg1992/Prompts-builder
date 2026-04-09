@@ -73,6 +73,19 @@ Express 5 backend with all routes:
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
+## Prompt Engineering
+
+The prompt generator (`artifacts/api-server/src/lib/prompt-generator.ts`) follows a best-practice system prompt informed by five reference sources (PEEM, Anthropic context engineering, OpenAI/Claude best practices, and a custom system prompt spec). Reference material is stored in `artifacts/api-server/src/lib/prompt-engineering-context/`.
+
+Key aspects:
+- **4-part output structure**: Every generated prompt contains labeled sections: PRIORITIZATION SUMMARY → INPUT CONTEXT → SYSTEM INSTRUCTIONS → OUTPUT CONSTRAINTS → FEW-SHOT EXAMPLES
+- **Conversation hierarchy**: Transcript is analyzed and grouped into core requirements / secondary preferences / explorations
+- **Context mining**: Design constraints (colors, typography, tokens) are extracted from context items and inserted explicitly
+- **PEEM self-evaluation**: The model internally evaluates the prompt across 9 quality axes (clarity, linguistic quality, fairness, accuracy, coherence, relevance, objectivity, clarity, conciseness) before finalizing
+- **Language matching**: Prompt language matches the dominant transcript language (English/Danish)
+- **XML-structured context**: Context items and transcripts are passed in XML tags for clear delimiting
+- **max_completion_tokens**: 4096 (increased from 2048 to accommodate the richer structure)
+
 ## Design Principles
 
 The app follows the document's requirement: **no hardcoded domain knowledge**. Prompt generation is entirely driven by what the user adds to the session. The AI model receives the user's context items + transcript segments + optional instruction. No company-specific terms, product families, or design assumptions are baked in.

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { marked } from "marked";
 import {
   useListPrompts,
   getListPromptsQueryKey,
@@ -24,6 +25,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+function PromptMarkdown({ content }: { content: string }) {
+  const html = useMemo(() => {
+    return marked.parse(content, { async: false }) as string;
+  }, [content]);
+
+  return (
+    <div
+      className="p-4 bg-background rounded-b-lg prose prose-sm dark:prose-invert max-w-none
+        prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground
+        prose-h3:text-sm prose-h3:uppercase prose-h3:tracking-wider prose-h3:mt-5 prose-h3:mb-2
+        prose-p:text-sm prose-p:leading-relaxed prose-p:text-foreground
+        prose-li:text-sm prose-li:text-foreground
+        prose-code:text-xs prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-foreground prose-code:before:content-none prose-code:after:content-none
+        prose-strong:text-foreground prose-strong:font-semibold
+        prose-hr:border-border prose-hr:my-4
+        prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
 
 export function PromptPanel({ sessionId }: { sessionId: number }) {
   const { toast } = useToast();
@@ -255,11 +277,7 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
                       autoFocus
                     />
                   ) : (
-                    <div className="p-4 bg-background rounded-b-lg">
-                      <pre className="font-mono text-sm leading-relaxed text-foreground whitespace-pre-wrap font-sans">
-                        {selectedPrompt.content}
-                      </pre>
-                    </div>
+                    <PromptMarkdown content={selectedPrompt.content} />
                   )}
                 </CardContent>
               </Card>

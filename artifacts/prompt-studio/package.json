@@ -76,6 +76,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "marked": "^18.0.0"
   }
 }

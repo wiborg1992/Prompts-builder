@@ -225,3 +225,14 @@ export async function generateDesignPrompt(
 
   return content.trim();
 }
+
+export function wrapPromptExport(content: string) {
+  return `===SPECiale_CURSOR_HANDOFF===
+Når denne mappe åbnes i Cursor: behandl projektet som en levende prototype fra vores speciale-flow.
+- Første prioritet: implementer og juster visualiseringen ud fra designprompten i denne fil / i mappen.
+- Brug den eksisterende index.html og tilhørende filer som udgangspunkt; ret kun det der skal ændres.
+- Hold løsningen kørebar med simpel statisk server (HTML/CSS/JS) medmindre projektet allerede bruger andet.
+===END_SPECiale_CURSOR_HANDOFF===
+
+${content}`;
+}

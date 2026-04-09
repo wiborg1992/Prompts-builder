@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, ne } from "drizzle-orm";
+import { eq, and, desc, notInArray } from "drizzle-orm";
 import { db, contextItemsTable, generatedPromptsTable, transcriptSegmentsTable } from "@workspace/db";
+import { wrapPromptExport } from "../lib/prompt-generator";
 import {
   ListPromptsParams,
   GeneratePromptParams,
@@ -44,7 +45,7 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
     .from(contextItemsTable)
     .where(and(
       eq(contextItemsTable.sessionId, params.data.sessionId),
-      ne(contextItemsTable.type, "transcript")
+      notInArray(contextItemsTable.type, ["transcript"])
     ))
     .orderBy(contextItemsTable.createdAt);
 
@@ -83,6 +84,36 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
     .returning();
 
   res.status(201).json(prompt);
+});
+
+router.get("/sessions/:sessionId/prompts/:id/export", async (req, res): Promise<void> => {
+  const params = DeletePromptParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [prompt] = await db
+    .select()
+    .from(generatedPromptsTable)
+    .where(
+      and(
+        eq(generatedPromptsTable.id, params.data.id),
+        eq(generatedPromptsTable.sessionId, params.data.sessionId)
+      )
+    );
+
+  if (!prompt) {
+    res.status(404).json({ error: "Prompt not found" });
+    return;
+  }
+
+  const content = wrapPromptExport(prompt.content);
+  const filename = `prompt-v${prompt.version}-session${params.data.sessionId}.txt`;
+
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(content);
 });
 
 router.patch("/sessions/:sessionId/prompts/:id", async (req, res): Promise<void> => {

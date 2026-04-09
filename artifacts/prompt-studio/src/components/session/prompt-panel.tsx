@@ -71,16 +71,14 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
         setSelectedId(newPrompt.id);
         setEditingId(null);
 
-        const blob = new Blob([newPrompt.content], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
+        const url = `/api/sessions/${sessionId}/prompts/${newPrompt.id}/export`;
         const a = document.createElement("a");
         a.style.display = "none";
         a.href = url;
-        a.download = `prompt-v${newPrompt.version}-session${sessionId}.txt`;
+        a.download = "";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     }
   });

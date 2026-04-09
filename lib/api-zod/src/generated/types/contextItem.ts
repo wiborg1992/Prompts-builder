@@ -14,5 +14,11 @@ export interface ContextItem {
   /** @nullable */
   label?: string | null;
   content: string;
+  /** @nullable */
+  fileUrl?: string | null;
+  /** @nullable */
+  filename?: string | null;
+  /** @nullable */
+  mimeType?: string | null;
   createdAt: Date;
 }

@@ -49,6 +49,12 @@ export interface ContextItem {
   /** @nullable */
   label?: string | null;
   content: string;
+  /** @nullable */
+  fileUrl?: string | null;
+  /** @nullable */
+  filename?: string | null;
+  /** @nullable */
+  mimeType?: string | null;
   createdAt: string;
 }
 
@@ -69,6 +75,12 @@ export interface CreateContextItemBody {
   /** @nullable */
   label?: string | null;
   content: string;
+  /** @nullable */
+  fileUrl?: string | null;
+  /** @nullable */
+  filename?: string | null;
+  /** @nullable */
+  mimeType?: string | null;
 }
 
 export interface UpdateContextItemBody {
@@ -100,11 +112,26 @@ export interface UpdatePromptBody {
   content?: string;
 }
 
+/**
+ * Transcription provider to use
+ */
+export type TranscribeAudioBodyProvider =
+  (typeof TranscribeAudioBodyProvider)[keyof typeof TranscribeAudioBodyProvider];
+
+export const TranscribeAudioBodyProvider = {
+  deepgram: "deepgram",
+  openai: "openai",
+} as const;
+
 export interface TranscribeAudioBody {
   /** Base64-encoded audio data */
   audio: string;
   /** Audio MIME type (e.g. audio/webm) */
   mimetype?: string;
+  /** Transcription provider to use */
+  provider?: TranscribeAudioBodyProvider;
+  /** Language code (e.g. da, en) */
+  language?: string;
 }
 
 export interface TranscriptionResult {
@@ -120,4 +147,23 @@ export interface SessionSummary {
   contextByType: SessionSummaryContextByType;
   /** @nullable */
   latestPromptPreview?: string | null;
+}
+
+export interface UploadUrlRequest {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  size: number;
+  /** @minLength 1 */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: UploadUrlRequest;
+}
+
+export interface ErrorEnvelope {
+  error: string;
 }

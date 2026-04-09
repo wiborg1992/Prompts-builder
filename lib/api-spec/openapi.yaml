@@ -18,6 +18,8 @@ tags:
     description: Prompt generation and history
   - name: transcription
     description: Audio transcription via Deepgram
+  - name: Storage
+    description: Object storage upload and serving endpoints.
 paths:
   /healthz:
     get:
@@ -318,7 +320,7 @@ paths:
     post:
       operationId: transcribeAudio
       tags: [transcription]
-      summary: Transcribe audio using Deepgram
+      summary: Transcribe audio using selected provider
       requestBody:
         required: true
         content:
@@ -353,6 +355,87 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SessionSummary"
+
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Failed to generate upload URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      summary: Serve a public asset from PUBLIC_OBJECT_SEARCH_PATHS
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content streamed with correct Content-Type.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: File not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity from PRIVATE_OBJECT_DIR
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content streamed with correct Content-Type.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
 components:
   schemas:
@@ -417,6 +500,12 @@ components:
           type: ["string", "null"]
         content:
           type: string
+        fileUrl:
+          type: ["string", "null"]
+        filename:
+          type: ["string", "null"]
+        mimeType:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -437,6 +526,12 @@ components:
           type: ["string", "null"]
         content:
           type: string
+        fileUrl:
+          type: ["string", "null"]
+        filename:
+          type: ["string", "null"]
+        mimeType:
+          type: ["string", "null"]
       required:
         - type
         - content
@@ -498,6 +593,13 @@ components:
         mimetype:
           type: string
           description: Audio MIME type (e.g. audio/webm)
+        provider:
+          type: string
+          enum: [deepgram, openai]
+          description: Transcription provider to use
+        language:
+          type: string
+          description: Language code (e.g. da, en)
       required:
         - audio
 
@@ -529,3 +631,36 @@ components:
         - contextCount
         - promptCount
         - contextByType
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/UploadUrlRequest'
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

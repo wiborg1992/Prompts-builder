@@ -11,6 +11,13 @@ export async function generateDesignPrompt(
 
   const contextSections = contextItems.map((item) => {
     const label = item.label ? ` (${item.label})` : "";
+
+    if ((item.type === "file" || item.type === "image") && item.filename) {
+      const fileMeta = `File: ${item.filename}${item.mimeType ? ` [${item.mimeType}]` : ""}`;
+      const description = item.content ? `\nDescription: ${item.content}` : "";
+      return `[${item.type.toUpperCase()}${label}]\n${fileMeta}${description}`;
+    }
+
     return `[${item.type.toUpperCase()}${label}]\n${item.content}`;
   });
 
@@ -25,6 +32,7 @@ Rules:
 - Keep the output focused and practical.
 - Do not invent requirements, screens, flows, or user roles that the context doesn't mention.
 - If the context is sparse, produce a generic but coherent prompt that reflects exactly what was provided.
+- Context may include uploaded files and images described by filename and type. Treat these as reference materials.
 - Output only the prompt text — no meta-commentary, no headers, no preamble.`;
 
   const userMessage = instruction

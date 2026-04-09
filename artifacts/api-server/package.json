@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@deepgram/sdk": "^5.0.0",
+    "@google-cloud/storage": "^7.19.0",
+    "@types/ws": "^8.18.1",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
@@ -18,8 +20,10 @@
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "google-auth-library": "^10.6.2",
     "pino": "^9",
-    "pino-http": "^10"
+    "pino-http": "^10",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

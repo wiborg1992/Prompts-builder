@@ -1,0 +1,204 @@
+Refactor the app flow so recording and live transcription become the primary experience.
+ 
+Right now the app flow does not match the intended product behavior.
+The app should be centered around one main recording workspace where the user can start a session, record continuously throughout a meeting, and follow the live transcription as it appears in real time.
+ 
+GOAL
+ 
+Make Record the main entry point and the main workspace of the app.
+ 
+The user should land directly in the recording experience.
+The recording experience should feel like the core of the product.
+The user should be able to start recording and let it run through the full meeting.
+While recording, the user should be able to see the live transcription appear continuously on screen.
+ 
+MAIN FLOW
+ 
+When the user opens the app, the first and most prominent section should be the Record workspace.
+ 
+The Record workspace should contain
+ 
+a large clear recording area
+live transcript output
+recording controls
+language selection
+transcription provider selection
+session status
+ 
+The user should be able to
+ 
+choose language before recording
+choose transcription provider before recording
+start recording
+pause recording
+resume recording
+stop recording
+follow the transcript live while speaking
+ 
+RECORD AS PRIMARY WORKSPACE
+ 
+Make the Record section the default visible screen or homepage state of the app.
+Do not hide it behind secondary navigation.
+It should be the central panel the user sees first.
+ 
+The visual hierarchy should make it obvious that this is where the session happens.
+ 
+LIVE TRANSCRIPTION BEHAVIOR
+ 
+When recording starts, the app should continuously transcribe incoming speech and display it live in the recording workspace.
+ 
+The transcript should update while the conversation is happening.
+The user should be able to follow what the system hears in real time or near real time.
+ 
+Do not wait until the session is finished before showing transcript.
+The transcript should appear progressively during recording.
+ 
+The transcript area should feel like a live feed.
+Each transcript chunk should appear as it is received and then be merged into the ongoing full transcript.
+ 
+LANGUAGE AND PROVIDER SELECTION
+ 
+The user must be able to choose both
+ 
+which language is being recorded
+which transcription provider should be used
+ 
+At minimum support these language options
+ 
+Danish
+English
+ 
+At minimum support these provider options
+ 
+OpenAI
+Deepgram
+ 
+The intended logic is that the user can explicitly choose what to use depending on the session.
+Do not hide this behind automatic assumptions only.
+ 
+If needed, provide sensible defaults such as
+ 
+Danish with OpenAI
+English with Deepgram
+ 
+But still let the user change both manually before recording.
+ 
+UI REQUIREMENTS FOR THE RECORD SECTION
+ 
+The Record workspace should include these elements clearly
+ 
+Session title or current session label
+Language selector
+Provider selector
+Large Start Recording button
+Pause button while active
+Resume button when paused
+Stop button
+Recording status indicator
+Live transcript panel
+Optional elapsed time indicator
+ 
+The live transcript panel should be large and readable.
+It should be one of the most prominent areas on screen.
+ 
+The recording controls should feel clear and reliable.
+The user should always understand whether the system is idle, recording, paused, or stopped.
+ 
+STATE EXPECTATIONS
+ 
+Idle state
+ 
+The user sees the Record workspace
+The user can choose language and provider
+The user can start recording
+ 
+Recording state
+ 
+The system captures audio continuously
+The transcript updates live on screen
+The interface clearly shows that recording is active
+ 
+Paused state
+ 
+Audio capture stops temporarily
+The transcript remains visible
+The user can resume or stop
+ 
+Stopped state
+ 
+Recording ends
+The final transcript remains available
+The session can then move on to prompt generation or later processing
+ 
+TRANSCRIPTION ROUTING
+ 
+Respect the chosen provider and chosen language when recording starts.
+ 
+If the user selects Danish and OpenAI, use OpenAI transcription.
+If the user selects English and Deepgram, use Deepgram transcription.
+ 
+Do not silently override the user choice unless there is a hard technical reason.
+If there is a mismatch or unsupported combination, show a clear message and fallback behavior.
+ 
+If the current architecture assumes automatic provider routing only, refactor it so explicit user choice is supported.
+ 
+BACKEND EXPECTATIONS
+ 
+The backend should support a live or near live transcription pipeline that works during recording.
+ 
+It should support
+ 
+session start
+streaming or chunk based transcript updates
+provider aware transcription routing
+language aware transcription routing
+pause and resume behavior if supported by the recording flow
+session stop
+storing transcript chunks in the session
+ 
+The transcript data should be associated with the current session as it arrives.
+ 
+FRONTEND EXPECTATIONS
+ 
+Refactor the frontend so the Record section becomes the main product view.
+ 
+The layout should prioritize
+ 
+recording controls
+provider and language selection
+live transcript
+ 
+Do not make the live transcript a hidden secondary panel.
+It should be central and immediately visible.
+ 
+The transcript should be readable and update smoothly without confusing re renders.
+ 
+PROMPT ENGINE RELATION
+ 
+Do not trigger the main prompt building flow continuously if that hurts the recording experience.
+The most important thing during recording is stable live transcription.
+ 
+If needed, keep prompt generation as a later step after recording stops, or as a lightweight background process that does not interfere with the main live transcript experience.
+ 
+The priority in this change is the recording and transcription flow.
+ 
+ACCEPTANCE CRITERIA
+ 
+This refactor is successful if
+ 
+the Record section is the main landing experience
+the user can select language before recording
+the user can select provider before recording
+the user can start a session and let it run through a full meeting
+the transcript appears live while people are speaking
+the user can pause and resume recording
+the user can stop recording and keep the final transcript
+the interface clearly shows recording status
+the live transcript is visually central and easy to follow
+provider and language choice are respected by the transcription pipeline
+ 
+IMPORTANT
+ 
+This is not just a UI tweak.
+Refactor the product flow so recording and live transcription become the primary experience of the app.
+The user should feel that the whole session starts with recording and that they can watch the transcript build live while the meeting is happening.

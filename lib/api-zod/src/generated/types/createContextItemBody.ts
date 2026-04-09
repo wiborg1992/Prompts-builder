@@ -12,4 +12,10 @@ export interface CreateContextItemBody {
   /** @nullable */
   label?: string | null;
   content: string;
+  /** @nullable */
+  fileUrl?: string | null;
+  /** @nullable */
+  filename?: string | null;
+  /** @nullable */
+  mimeType?: string | null;
 }

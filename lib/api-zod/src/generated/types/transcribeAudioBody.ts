@@ -5,10 +5,15 @@
  * Context-driven design prompt generation API
  * OpenAPI spec version: 0.1.0
  */
+import type { TranscribeAudioBodyProvider } from "./transcribeAudioBodyProvider";
 
 export interface TranscribeAudioBody {
   /** Base64-encoded audio data */
   audio: string;
   /** Audio MIME type (e.g. audio/webm) */
   mimetype?: string;
+  /** Transcription provider to use */
+  provider?: TranscribeAudioBodyProvider;
+  /** Language code (e.g. da, en) */
+  language?: string;
 }

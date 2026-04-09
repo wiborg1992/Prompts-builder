@@ -41,11 +41,15 @@ router.post("/sessions/:sessionId/context", async (req, res): Promise<void> => {
     return;
   }
 
+  const { fileUrl, filename, mimeType, ...rest } = parsed.data;
   const [item] = await db
     .insert(contextItemsTable)
     .values({
       sessionId: params.data.sessionId,
-      ...parsed.data,
+      ...rest,
+      fileUrl: fileUrl ?? null,
+      filename: filename ?? null,
+      mimeType: mimeType ?? null,
     })
     .returning();
 

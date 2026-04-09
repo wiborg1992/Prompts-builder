@@ -1,13 +1,15 @@
 import { useParams } from "wouter";
 import { Link } from "wouter";
-import { 
-  useGetSession, 
+import {
+  useGetSession,
   getGetSessionQueryKey,
   useGetSessionSummary,
-  getGetSessionSummaryQueryKey
+  getGetSessionSummaryQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Loader2, Mic, FolderOpen, Sparkles } from "lucide-react";
+import { RecordingWorkspace } from "@/components/session/recording-workspace";
 import { ContextPanel } from "@/components/session/context-panel";
 import { PromptPanel } from "@/components/session/prompt-panel";
 
@@ -18,15 +20,15 @@ export default function SessionWorkspace() {
   const { data: session, isLoading: sessionLoading } = useGetSession(sessionId, {
     query: {
       enabled: !!sessionId,
-      queryKey: getGetSessionQueryKey(sessionId)
-    }
+      queryKey: getGetSessionQueryKey(sessionId),
+    },
   });
 
   const { data: summary } = useGetSessionSummary(sessionId, {
     query: {
       enabled: !!sessionId,
-      queryKey: getGetSessionSummaryQueryKey(sessionId)
-    }
+      queryKey: getGetSessionSummaryQueryKey(sessionId),
+    },
   });
 
   if (sessionLoading) {
@@ -50,8 +52,7 @@ export default function SessionWorkspace() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Header */}
-      <header className="flex-none h-16 border-b border-border bg-card/30 backdrop-blur-md flex items-center justify-between px-4 lg:px-6">
+      <header className="flex-none h-14 border-b border-border bg-card/30 backdrop-blur-md flex items-center justify-between px-4 lg:px-6">
         <div className="flex items-center gap-4">
           <Link href="/">
             <Button variant="ghost" size="icon" className="w-8 h-8" data-testid="button-back">
@@ -63,7 +64,7 @@ export default function SessionWorkspace() {
               {session.title}
             </h1>
             {session.description && (
-              <span className="text-xs text-muted-foreground mt-1" data-testid="text-session-desc">
+              <span className="text-xs text-muted-foreground mt-0.5" data-testid="text-session-desc">
                 {session.description}
               </span>
             )}
@@ -80,18 +81,58 @@ export default function SessionWorkspace() {
         </div>
       </header>
 
-      {/* Main Workspace */}
-      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left: Context Panel */}
-        <section className="flex-1 lg:w-1/2 flex flex-col min-h-0 border-r border-border bg-card/10">
-          <ContextPanel sessionId={sessionId} />
-        </section>
+      <Tabs defaultValue="record" className="flex-1 flex flex-col min-h-0">
+        <div className="flex-none border-b border-border bg-card/20">
+          <TabsList className="h-10 bg-transparent rounded-none border-none px-4 gap-1">
+            <TabsTrigger
+              value="record"
+              className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-4 text-sm gap-2"
+              data-testid="tab-record"
+            >
+              <Mic className="w-4 h-4" />
+              Record
+            </TabsTrigger>
+            <TabsTrigger
+              value="context"
+              className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-4 text-sm gap-2"
+              data-testid="tab-context"
+            >
+              <FolderOpen className="w-4 h-4" />
+              Context
+              {summary && summary.contextCount > 0 && (
+                <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                  {summary.contextCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="prompts"
+              className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-md px-4 text-sm gap-2"
+              data-testid="tab-prompts"
+            >
+              <Sparkles className="w-4 h-4" />
+              Prompts
+              {summary && summary.promptCount > 0 && (
+                <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                  {summary.promptCount}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        {/* Right: Prompt Panel */}
-        <section className="flex-1 lg:w-1/2 flex flex-col min-h-0 bg-background">
+        <TabsContent value="record" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+          <RecordingWorkspace sessionId={sessionId} />
+        </TabsContent>
+
+        <TabsContent value="context" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+          <ContextPanel sessionId={sessionId} />
+        </TabsContent>
+
+        <TabsContent value="prompts" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
           <PromptPanel sessionId={sessionId} />
-        </section>
-      </main>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

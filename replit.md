@@ -17,14 +17,20 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Build**: esbuild (CJS bundle)
 - **AI**: OpenAI via user's own `OPENAI_API_KEY`
 - **Speech-to-text**: Deepgram SDK v5 (`nova-3` model) via `DEEPGRAM_API_KEY`
+- **Object Storage**: Google Cloud Storage via Replit App Storage (presigned URL uploads)
+- **WebSocket**: `ws` library for live transcription streaming
 
 ## Artifacts
 
 ### Prompt Studio (`artifacts/prompt-studio`)
-Context-driven design prompt generator. Users create sessions, add context items (transcripts, notes, files, images, requirements, pasted text), and generate AI-composed design prompts from that session context.
+Context-driven design prompt generator with recording-first workflow. Users create sessions, record audio with live transcription, add context items (transcripts, notes, files, images, requirements, pasted text), and generate AI-composed design prompts from session context.
 
 - **No hardcoded domain knowledge** — all prompt generation is derived from user-supplied context
-- **Pages**: home (sessions list) + session workspace (context panel + prompt panel)
+- **Recording-first layout**: Session workspace opens to the Record tab by default
+- **Live transcription**: WebSocket streaming to Deepgram or batch to OpenAI
+- **Language support**: English and Danish
+- **File uploads**: Real file/image uploads via presigned URLs to GCS
+- **Tabs**: Record (primary) | Context | Prompts
 - **Frontend**: React + Vite + TanStack Query + Shadcn UI + Tailwind
 - **Preview**: served at `/`
 
@@ -33,16 +39,20 @@ Express 5 backend with all routes:
 - `GET/POST /api/sessions` — session management
 - `GET/PATCH/DELETE /api/sessions/:id` — session CRUD
 - `GET /api/sessions/:id/summary` — session context stats
-- `GET/POST /api/sessions/:sessionId/context` — context item management
+- `GET/POST /api/sessions/:sessionId/context` — context item management (text + file metadata)
 - `PATCH/DELETE /api/sessions/:sessionId/context/:id`
 - `GET/POST /api/sessions/:sessionId/prompts` — prompt generation via AI
 - `PATCH/DELETE /api/sessions/:sessionId/prompts/:id`
-- `POST /api/transcribe` — audio transcription via Deepgram (base64 audio → text)
+- `POST /api/transcribe` — batch audio transcription (Deepgram or OpenAI, language-aware)
+- `WS /api/ws/transcribe` — WebSocket live transcription (Deepgram streaming or OpenAI chunked)
+- `POST /api/storage/uploads/request-url` — presigned URL for file upload
+- `GET /api/storage/objects/*` — serve uploaded objects
+- `GET /api/storage/public-objects/*` — serve public assets
 
 ## Database Schema
 
 - `sessions` — session records (id, title, description, timestamps)
-- `context_items` — context pieces per session (type: transcript|note|file|image|requirement|paste, label, content)
+- `context_items` — context pieces per session (type: transcript|note|file|image|requirement|paste, label, content, file_url, filename, mime_type)
 - `generated_prompts` — AI-generated prompts per session (content, instruction, version, timestamps)
 
 ## Key Commands
@@ -56,5 +66,7 @@ Express 5 backend with all routes:
 ## Design Principles
 
 The app follows the document's requirement: **no hardcoded domain knowledge**. Prompt generation is entirely driven by what the user adds to the session. The AI model receives only the user's context items + optional instruction. No company-specific terms, product families, or design assumptions are baked in.
+
+The recording experience is the primary workflow — users start recording immediately and see live transcription as they speak.
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

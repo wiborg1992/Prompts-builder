@@ -1,0 +1,218 @@
+Fix the Context tab so it supports real uploads instead of treating every context type as pasted text.
+ 
+Right now the Context tab is incorrectly implemented.
+
+The UI lets the user choose context types such as file, image, requirement, and paste, but all of them currently render the same text paste field.
+
+That means the user cannot actually upload files, images, or documents.
+
+This must be fixed.
+ 
+GOAL
+ 
+Refactor the Context tab so each context type has the correct input method and backend handling.
+ 
+The app must support real uploads for files, documents, and images.
+
+Only text based context types should use a textarea or paste field.
+ 
+WHAT TO CHANGE
+ 
+The Context tab should no longer use one shared text input for every type.
+ 
+Instead, create proper type specific behavior.
+ 
+EXPECTED CONTEXT TYPES
+ 
+Paste
+
+This should remain a text based input where the user can paste freeform context manually.
+ 
+Requirement
+
+This should be a structured text input or textarea for requirement style context.
+
+It can stay text based unless there is already a requirement specific schema.
+ 
+File
+
+This must allow real file upload through a file picker and preferably drag and drop.
+
+It should support common document types such as pdf, docx, txt, md, and similar if feasible.
+ 
+Image
+
+This must allow real image upload through a file picker and preferably drag and drop.
+
+It should support common image formats such as png, jpg, jpeg, and webp.
+ 
+Document
+
+If this type exists separately from file, it should also support real upload and not a text field.
+ 
+CORE FIX
+ 
+Do not render the same textarea for every context type.
+
+Render the correct input control depending on the selected type.
+ 
+For text based types
+
+Show a textarea
+ 
+For upload based types
+
+Show a proper upload component
+ 
+REQUIRED FRONTEND BEHAVIOR
+ 
+When the user selects Paste
+
+Show a textarea for pasted text
+ 
+When the user selects Requirement
+
+Show a textarea or structured requirement field
+ 
+When the user selects File
+
+Show a file upload component with browse and optional drag and drop
+ 
+When the user selects Image
+
+Show an image upload component with browse and optional drag and drop
+ 
+When the user selects Document
+
+Show a document upload component
+ 
+Do not show a text field for File, Image, or Document unless it is an optional description field in addition to the upload.
+ 
+UPLOADED ITEM HANDLING
+ 
+When a user uploads a file or image, the app should
+ 
+store the uploaded asset correctly
+
+show it in the context list
+
+display its filename
+
+display its type
+
+allow removal
+
+allow preview if feasible for images and maybe simple documents
+
+associate it with the current session
+ 
+If the existing backend already has upload logic, reuse it properly.
+
+If not, implement the necessary backend support.
+ 
+BACKEND EXPECTATIONS
+ 
+Make sure uploaded files are handled as actual files, not fake text placeholders.
+ 
+The backend should support
+ 
+receiving multipart form uploads
+
+storing uploaded files safely
+
+returning metadata for uploaded items
+
+associating uploads with the current session
+
+distinguishing between text context and uploaded asset context
+ 
+If the app already has context storage, extend it so it supports both
+ 
+text context entries
+
+uploaded asset entries
+ 
+DATA MODEL EXPECTATION
+ 
+Each context item should have a clean structure such as
+ 
+id
+
+sessionId
+
+type
+
+sourceKind
+
+contentText if text based
+
+fileUrl or filePath if uploaded
+
+filename if uploaded
+
+mimeType if uploaded
+
+createdAt
+ 
+Text based items should use contentText.
+
+Upload based items should use file metadata and file location.
+ 
+PROMPT ENGINE INTEGRATION
+ 
+The prompt generation pipeline must understand the difference between pasted text and uploaded assets.
+ 
+Uploaded files and images should be treated as real context assets.
+
+Do not flatten them into a fake pasted text field in the UI.
+ 
+If file parsing is already available, use it.
+
+If not, at minimum make sure the uploaded file is stored and represented correctly in the session context so it can be processed later.
+ 
+UX EXPECTATIONS
+ 
+The Context tab should feel clear and intuitive.
+ 
+The user should always understand
+ 
+what kind of context they are adding
+
+whether they are pasting text or uploading a file
+
+whether the upload succeeded
+
+which uploaded items belong to the session
+ 
+The tab should not pretend that file upload exists if it is only a textarea.
+ 
+ACCEPTANCE CRITERIA
+ 
+This fix is successful if
+ 
+selecting File opens a real file upload flow
+
+selecting Image opens a real image upload flow
+
+selecting Document opens a real document upload flow if that type exists
+
+selecting Paste shows a text field
+
+selecting Requirement shows a text field or requirement input
+
+uploaded assets appear in the session context list
+
+the user can remove uploaded items
+
+the backend stores uploaded assets as actual files
+
+the UI no longer uses one generic textarea for all context types
+ 
+IMPORTANT
+ 
+This is a real functionality fix, not a cosmetic change.
+
+Do not simulate upload with text placeholders.
+
+Implement actual upload handling end to end.
+ 

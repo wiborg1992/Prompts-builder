@@ -97,6 +97,9 @@ export const ListContextItemsResponseItem = zod.object({
   ]),
   label: zod.string().nullish(),
   content: zod.string(),
+  fileUrl: zod.string().nullish(),
+  filename: zod.string().nullish(),
+  mimeType: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListContextItemsResponse = zod.array(ListContextItemsResponseItem);
@@ -119,6 +122,9 @@ export const AddContextItemBody = zod.object({
   ]),
   label: zod.string().nullish(),
   content: zod.string(),
+  fileUrl: zod.string().nullish(),
+  filename: zod.string().nullish(),
+  mimeType: zod.string().nullish(),
 });
 
 /**
@@ -147,6 +153,9 @@ export const UpdateContextItemResponse = zod.object({
   ]),
   label: zod.string().nullish(),
   content: zod.string(),
+  fileUrl: zod.string().nullish(),
+  filename: zod.string().nullish(),
+  mimeType: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -221,7 +230,7 @@ export const DeletePromptParams = zod.object({
 });
 
 /**
- * @summary Transcribe audio using Deepgram
+ * @summary Transcribe audio using selected provider
  */
 export const TranscribeAudioBody = zod.object({
   audio: zod.string().describe("Base64-encoded audio data"),
@@ -229,6 +238,11 @@ export const TranscribeAudioBody = zod.object({
     .string()
     .optional()
     .describe("Audio MIME type (e.g. audio\/webm)"),
+  provider: zod
+    .enum(["deepgram", "openai"])
+    .optional()
+    .describe("Transcription provider to use"),
+  language: zod.string().optional().describe("Language code (e.g. da, en)"),
 });
 
 export const TranscribeAudioResponse = zod.object({
@@ -248,4 +262,40 @@ export const GetSessionSummaryResponse = zod.object({
   promptCount: zod.number(),
   contextByType: zod.record(zod.string(), zod.number()),
   latestPromptPreview: zod.string().nullish(),
+});
+
+/**
+ * @summary Request a presigned URL for file upload
+ */
+
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string().min(1),
+  size: zod.number().min(1),
+  contentType: zod.string().min(1),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string().url(),
+  objectPath: zod.string(),
+  metadata: zod
+    .object({
+      name: zod.string().min(1),
+      size: zod.number().min(1),
+      contentType: zod.string().min(1),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Serve a public asset from PUBLIC_OBJECT_SEARCH_PATHS
+ */
+export const GetPublicObjectParams = zod.object({
+  filePath: zod.coerce.string(),
+});
+
+/**
+ * @summary Serve an object entity from PRIVATE_OBJECT_DIR
+ */
+export const GetStorageObjectParams = zod.object({
+  objectPath: zod.coerce.string(),
 });

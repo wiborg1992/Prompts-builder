@@ -11,6 +11,9 @@ export const contextItemsTable = pgTable("context_items", {
   type: text("type").notNull().$type<typeof contextItemTypeEnum[number]>(),
   label: text("label"),
   content: text("content").notNull(),
+  fileUrl: text("file_url"),
+  filename: text("filename"),
+  mimeType: text("mime_type"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

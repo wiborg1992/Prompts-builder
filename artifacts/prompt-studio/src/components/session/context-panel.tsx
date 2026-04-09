@@ -33,6 +33,7 @@ import {
   Loader2,
   File as FileIcon,
   X,
+  Pencil,
 } from "lucide-react";
 
 const TypeIcon = ({ type }: { type: string }) => {
@@ -53,7 +54,6 @@ const TypeIcon = ({ type }: { type: string }) => {
 };
 
 const textTypes: ContextItemType[] = ["note", "paste", "requirement"];
-const uploadTypes: ContextItemType[] = ["file", "image"];
 
 function isTextType(type: ContextItemType): boolean {
   return textTypes.includes(type);
@@ -84,7 +84,7 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
 
-  const { uploadFile, isUploading, progress } = useUpload({
+  const { uploadFile } = useUpload({
     onSuccess: () => {},
     onError: () => {},
   });
@@ -133,6 +133,13 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
     deleteItem.mutate({ sessionId, id });
   };
 
+  const handleEdit = (item: ContextItem) => {
+    setIsAdding(true);
+    setNewType(item.type);
+    setNewLabel(item.label || item.filename || "");
+    setNewContent(item.content || "");
+  };
+
   const handleFileUpload = useCallback(
     async (file: File) => {
       const uploadId = `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -155,7 +162,7 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
             type: newType,
             label: file.name,
             content: file.name,
-            fileUrl: response.objectPath,
+            fileUrl: response?.objectPath || "",
             filename: file.name,
             mimeType: file.type,
           },
@@ -451,16 +458,27 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
                           </span>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDelete(item.id)}
-                        disabled={deleteItem.isPending}
-                        data-testid={`button-delete-context-${item.id}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-6 h-6 text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                          onClick={() => handleEdit(item)}
+                          data-testid={`button-edit-context-${item.id}`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-6 h-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDelete(item.id)}
+                          disabled={deleteItem.isPending}
+                          data-testid={`button-delete-context-${item.id}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
 
                     {item.type === "image" && item.fileUrl && (

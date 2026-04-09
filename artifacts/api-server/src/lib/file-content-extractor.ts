@@ -16,11 +16,9 @@ const TEXT_MIME_TYPES = new Set([
   "application/javascript",
 ]);
 
-const PDF_MIME_TYPES = new Set([
-  "application/pdf",
-]);
+const PDF_MIME_TYPES = new Set(["application/pdf"]);
 
-const MAX_EXTRACTED_LENGTH = 50_000;
+const MAX_EXTRACTED_LENGTH = 50000;
 
 export async function extractFileContent(
   fileUrl: string | null | undefined,
@@ -29,10 +27,8 @@ export async function extractFileContent(
   if (!fileUrl) return null;
 
   const effectiveMime = (mimeType || "").toLowerCase();
-
   const isPdf = PDF_MIME_TYPES.has(effectiveMime);
-  const isText = TEXT_MIME_TYPES.has(effectiveMime) ||
-    effectiveMime.startsWith("text/");
+  const isText = TEXT_MIME_TYPES.has(effectiveMime) || effectiveMime.startsWith("text/");
 
   if (!isPdf && !isText) return null;
 
@@ -46,16 +42,12 @@ export async function extractFileContent(
       const result = await parser.getText();
       const text = result.text?.trim();
       if (!text) return null;
-      return text.length > MAX_EXTRACTED_LENGTH
-        ? text.slice(0, MAX_EXTRACTED_LENGTH) + "\n[… truncated]"
-        : text;
+      return text.length > MAX_EXTRACTED_LENGTH ? `${text.slice(0, MAX_EXTRACTED_LENGTH)}\n[… truncated]` : text;
     }
 
     const text = buffer.toString("utf-8").trim();
     if (!text) return null;
-    return text.length > MAX_EXTRACTED_LENGTH
-      ? text.slice(0, MAX_EXTRACTED_LENGTH) + "\n[… truncated]"
-      : text;
+    return text.length > MAX_EXTRACTED_LENGTH ? `${text.slice(0, MAX_EXTRACTED_LENGTH)}\n[… truncated]` : text;
   } catch (error) {
     if (error instanceof ObjectNotFoundError) return null;
     console.error(`Failed to extract content from ${fileUrl}:`, error);

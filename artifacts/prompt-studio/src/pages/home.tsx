@@ -201,8 +201,18 @@ export default function Home() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [autoDownloadEnabled, setAutoDownloadEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const stored = window.localStorage.getItem("prompt-studio-auto-download");
+    return stored ? stored === "true" : true;
+  });
 
   const queryClient = useQueryClient();
+
+  const handleToggleAutoDownload = (checked: boolean) => {
+    setAutoDownloadEnabled(checked);
+    window.localStorage.setItem("prompt-studio-auto-download", String(checked));
+  };
 
   const createSession = useCreateSession({
     mutation: {
@@ -270,6 +280,19 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-full border border-border/50 bg-card/70 px-3 py-2 text-xs text-muted-foreground">
+              <span>Auto-download</span>
+              <button
+                type="button"
+                onClick={() => handleToggleAutoDownload(!autoDownloadEnabled)}
+                className={`h-5 w-9 rounded-full border transition-colors ${autoDownloadEnabled ? "bg-primary border-primary" : "bg-muted border-border"}`}
+                aria-pressed={autoDownloadEnabled}
+                aria-label="Toggle auto-download"
+                title="Toggle auto-download"
+              >
+                <span className={`block h-4 w-4 rounded-full bg-background shadow-sm transition-transform ${autoDownloadEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+              </button>
+            </div>
             {sessions && sessions.length > 0 && (
               <Button
                 variant="outline"

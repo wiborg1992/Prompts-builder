@@ -56,6 +56,24 @@ const TypeIcon = ({ type }: { type: string }) => {
 
 const textTypes: ContextItemType[] = ["note", "paste", "requirement"];
 
+const MIME_FROM_EXT: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".doc": "application/msword",
+  ".txt": "text/plain",
+  ".md": "text/markdown",
+  ".markdown": "text/markdown",
+  ".csv": "text/csv",
+  ".json": "application/json",
+  ".xml": "text/xml",
+  ".html": "text/html",
+  ".htm": "text/html",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+};
+
 function isTextType(type: ContextItemType): boolean {
   return textTypes.includes(type);
 }
@@ -152,6 +170,9 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
         { id: uploadId, file, status: "uploading", progress: 0 },
       ]);
 
+      const ext = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
+      const resolvedMimeType = file.type || MIME_FROM_EXT[ext] || "application/octet-stream";
+
       try {
         const response = await uploadFile(file);
 
@@ -167,7 +188,7 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
             content: file.name,
             fileUrl: response?.objectPath || "",
             filename: file.name,
-            mimeType: file.type,
+            mimeType: resolvedMimeType,
           },
         });
 

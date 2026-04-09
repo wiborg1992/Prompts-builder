@@ -104,6 +104,7 @@ async function buildAll() {
       "pdfjs-dist",
       "pdfjs-dist/*",
       "@napi-rs/canvas",
+      "mammoth",
     ],
     sourcemap: "linked",
     plugins: [

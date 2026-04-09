@@ -186,8 +186,9 @@ export async function generateDesignPrompt(
     const label = item.label ? ` label="${escapeXmlAttr(item.label)}"` : "";
     const typeTag = item.type.toLowerCase();
 
-    if ((item.type === "file" || item.type === "image") && item.filename) {
-      const fileMeta = `filename="${escapeXmlAttr(item.filename)}"${item.mimeType ? ` mimetype="${escapeXmlAttr(item.mimeType)}"` : ""}`;
+    if ((item.type === "file" || item.type === "image") && item.fileUrl) {
+      const displayName = item.filename || item.fileUrl.split("/").pop() || "unknown";
+      const fileMeta = `filename="${escapeXmlAttr(displayName)}"${item.mimeType ? ` mimetype="${escapeXmlAttr(item.mimeType)}"` : ""}`;
       const extracted = extractedContents[i];
       let body = "";
       if (extracted) {

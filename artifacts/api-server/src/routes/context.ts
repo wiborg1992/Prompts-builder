@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { db, contextItemsTable } from "@workspace/db";
 import {
   ListContextItemsParams,
@@ -22,7 +22,10 @@ router.get("/sessions/:sessionId/context", async (req, res): Promise<void> => {
   const items = await db
     .select()
     .from(contextItemsTable)
-    .where(eq(contextItemsTable.sessionId, params.data.sessionId))
+    .where(and(
+      eq(contextItemsTable.sessionId, params.data.sessionId),
+      ne(contextItemsTable.type, "transcript")
+    ))
     .orderBy(contextItemsTable.createdAt);
 
   res.json(items);

@@ -10,7 +10,6 @@ export type CreateContextItemBodyType =
   (typeof CreateContextItemBodyType)[keyof typeof CreateContextItemBodyType];
 
 export const CreateContextItemBodyType = {
-  transcript: "transcript",
   note: "note",
   file: "file",
   image: "image",

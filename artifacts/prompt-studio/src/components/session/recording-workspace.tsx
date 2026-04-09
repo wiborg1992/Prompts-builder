@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { useDeepgramSpeech, type TranscriptSegment } from "@/hooks/use-deepgram-speech";
+import { useDeepgramSpeech, type TranscriptSegment as LiveSegment } from "@/hooks/use-deepgram-speech";
 import {
-  useAddContextItem,
+  useListTranscriptSegments,
+  useAddTranscriptSegmentsBatch,
   useGeneratePrompt,
-  getListContextItemsQueryKey,
+  getListTranscriptSegmentsQueryKey,
   getGetSessionSummaryQueryKey,
   getListPromptsQueryKey,
 } from "@workspace/api-client-react";
@@ -33,7 +34,7 @@ function formatTime(seconds: number): string {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
-function formatTimestamp(ts: number): string {
+function formatTimestamp(ts: string | number): string {
   const d = new Date(ts);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
@@ -62,20 +63,27 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
   const [language, setLanguage] = useState("en");
   const [workflowState, setWorkflowState] = useState<WorkflowState>("idle");
   const [processingStep, setProcessingStep] = useState("");
-  const [stoppedSegments, setStoppedSegments] = useState<TranscriptSegment[]>([]);
+  const [stoppedSegments, setStoppedSegments] = useState<LiveSegment[]>([]);
   const feedEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: savedSegments, isLoading: segmentsLoading } = useListTranscriptSegments(sessionId, {
+    query: {
+      enabled: !!sessionId,
+      queryKey: getListTranscriptSegmentsQueryKey(sessionId),
+    },
+  });
 
   const {
     isRecording,
     interimText,
     error,
-    segments,
+    segments: liveSegments,
     elapsedSeconds,
     startRecording,
     stopRecording,
   } = useDeepgramSpeech({ language });
 
-  const addItem = useAddContextItem();
+  const addSegmentsBatch = useAddTranscriptSegmentsBatch();
   const generatePrompt = useGeneratePrompt({
     mutation: {
       onSuccess: () => {
@@ -105,7 +113,7 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
 
   useEffect(() => {
     feedEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [segments, interimText]);
+  }, [savedSegments, liveSegments, interimText]);
 
   const handleStart = async () => {
     setStoppedSegments([]);
@@ -121,23 +129,27 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
       return;
     }
 
-    const transcriptText = finalSegments.map((s) => `[${s.speaker}] ${s.text}`).join("\n\n");
-
     setWorkflowState("processing");
     setProcessingStep("Saving transcript...");
 
+    const recordingId = `rec-${Date.now()}`;
+
     try {
-      await addItem.mutateAsync({
+      await addSegmentsBatch.mutateAsync({
         sessionId,
         data: {
-          type: "transcript" as const,
-          label: `Workshop recording (${language === "da" ? "Danish" : "English"}) — ${finalSegments.length} segments`,
-          content: transcriptText,
+          segments: finalSegments.map((s) => ({
+            speaker: s.speaker,
+            text: s.text,
+            language: language,
+            recordingId,
+          })),
         },
       });
 
-      queryClient.invalidateQueries({ queryKey: getListContextItemsQueryKey(sessionId) });
+      await queryClient.invalidateQueries({ queryKey: getListTranscriptSegmentsQueryKey(sessionId) });
       queryClient.invalidateQueries({ queryKey: getGetSessionSummaryQueryKey(sessionId) });
+      setStoppedSegments([]);
 
       setProcessingStep("Generating prompt from transcript...");
 
@@ -155,7 +167,9 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
   const isActive = workflowState === "recording";
   const isProcessing = workflowState === "processing";
 
-  const displaySegments = isProcessing || (isIdle && stoppedSegments.length > 0) ? stoppedSegments : segments;
+  const hasSavedSegments = (savedSegments?.length ?? 0) > 0;
+  const hasLiveSegments = liveSegments.length > 0;
+  const hasStoppedSegments = stoppedSegments.length > 0;
 
   return (
     <div className="flex flex-col h-full" data-testid="recording-workspace">
@@ -234,7 +248,7 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
 
       <ScrollArea className="flex-1">
         <div className="max-w-3xl mx-auto p-6 space-y-1">
-          {displaySegments.length === 0 && !interimText && isIdle && (
+          {!hasSavedSegments && !hasLiveSegments && !hasStoppedSegments && !interimText && isIdle && !segmentsLoading && (
             <div className="text-center py-20">
               <MicOff className="w-16 h-16 mx-auto text-zinc-700 mb-4" />
               <p className="text-lg text-muted-foreground">Ready to record</p>
@@ -245,7 +259,7 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
             </div>
           )}
 
-          {displaySegments.length === 0 && !interimText && isActive && (
+          {!hasSavedSegments && !hasLiveSegments && !hasStoppedSegments && !interimText && isActive && (
             <div className="text-center py-20">
               <div className="flex items-center justify-center gap-1.5 mb-4">
                 {[...Array(7)].map((_, i) => (
@@ -266,8 +280,47 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
             </div>
           )}
 
-          {displaySegments.map((seg) => (
-            <SegmentBlock key={seg.id} segment={seg} />
+          {hasSavedSegments && (
+            <>
+              <div className="flex items-center gap-2 py-2 mb-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Transcript Log
+                </span>
+                <span className="text-xs text-muted-foreground/50">
+                  {savedSegments!.length} segments
+                </span>
+              </div>
+              {savedSegments!.map((seg) => (
+                <SavedSegmentBlock key={seg.id} segment={seg} />
+              ))}
+            </>
+          )}
+
+          {hasStoppedSegments && (
+            <>
+              {hasSavedSegments && (
+                <div className="border-t border-border/30 my-4 pt-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Just Recorded
+                  </span>
+                </div>
+              )}
+              {stoppedSegments.map((seg) => (
+                <LiveSegmentBlock key={seg.id} segment={seg} />
+              ))}
+            </>
+          )}
+
+          {isActive && (hasSavedSegments || hasStoppedSegments) && hasLiveSegments && (
+            <div className="border-t border-border/30 my-4 pt-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Current Recording
+              </span>
+            </div>
+          )}
+
+          {isActive && liveSegments.map((seg) => (
+            <LiveSegmentBlock key={seg.id} segment={seg} />
           ))}
 
           {interimText && isActive && (
@@ -278,7 +331,7 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
             </div>
           )}
 
-          {isProcessing && displaySegments.length > 0 && (
+          {isProcessing && (
             <div className="flex items-center justify-center gap-3 py-6 text-primary animate-in fade-in border-t border-border/30 mt-4">
               <Sparkles className="w-5 h-5 animate-pulse" />
               <span className="text-sm font-medium">{processingStep}</span>
@@ -292,7 +345,24 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
   );
 }
 
-function SegmentBlock({ segment }: { segment: TranscriptSegment }) {
+function SavedSegmentBlock({ segment }: { segment: { id: number; speaker: string; text: string; createdAt: string } }) {
+  const color = getSpeakerColor(segment.speaker);
+
+  return (
+    <div className="py-3 px-3 rounded-lg hover:bg-card/30 transition-colors group">
+      <div className="flex items-center gap-2 mb-1">
+        <User className={`w-3.5 h-3.5 ${color}`} />
+        <span className={`text-xs font-semibold ${color}`}>{segment.speaker}</span>
+        <span className="text-xs text-muted-foreground/40">{formatTimestamp(segment.createdAt)}</span>
+      </div>
+      <p className="text-sm leading-relaxed text-foreground/90 pl-5.5">
+        {segment.text}
+      </p>
+    </div>
+  );
+}
+
+function LiveSegmentBlock({ segment }: { segment: LiveSegment }) {
   const color = getSpeakerColor(segment.speaker);
 
   return (

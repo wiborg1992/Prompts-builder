@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
-import { db, contextItemsTable, generatedPromptsTable } from "@workspace/db";
+import { eq, and, desc, ne } from "drizzle-orm";
+import { db, contextItemsTable, generatedPromptsTable, transcriptSegmentsTable } from "@workspace/db";
 import {
   ListPromptsParams,
   GeneratePromptParams,
@@ -42,11 +42,20 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
   const contextItems = await db
     .select()
     .from(contextItemsTable)
-    .where(eq(contextItemsTable.sessionId, params.data.sessionId))
+    .where(and(
+      eq(contextItemsTable.sessionId, params.data.sessionId),
+      ne(contextItemsTable.type, "transcript")
+    ))
     .orderBy(contextItemsTable.createdAt);
 
-  if (contextItems.length === 0) {
-    res.status(400).json({ error: "No context items in this session. Add some context before generating a prompt." });
+  const transcriptSegments = await db
+    .select()
+    .from(transcriptSegmentsTable)
+    .where(eq(transcriptSegmentsTable.sessionId, params.data.sessionId))
+    .orderBy(transcriptSegmentsTable.createdAt);
+
+  if (contextItems.length === 0 && transcriptSegments.length === 0) {
+    res.status(400).json({ error: "No context or transcript in this session. Record a meeting or add context before generating a prompt." });
     return;
   }
 
@@ -61,7 +70,7 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
     ? (existingVersions[0]?.version ?? 0) + 1
     : 1;
 
-  const content = await generateDesignPrompt(contextItems, instruction ?? null);
+  const content = await generateDesignPrompt(contextItems, transcriptSegments, instruction ?? null);
 
   const [prompt] = await db
     .insert(generatedPromptsTable)

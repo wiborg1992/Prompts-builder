@@ -20,6 +20,8 @@ import type {
   ContextItem,
   CreateContextItemBody,
   CreateSessionBody,
+  CreateTranscriptSegmentBody,
+  CreateTranscriptSegmentsBatchBody,
   ErrorEnvelope,
   GeneratePromptBody,
   GeneratedPrompt,
@@ -27,6 +29,7 @@ import type {
   Session,
   SessionSummary,
   TranscribeAudioBody,
+  TranscriptSegment,
   TranscriptionResult,
   UpdateContextItemBody,
   UpdatePromptBody,
@@ -1233,6 +1236,452 @@ export const useDeletePrompt = <
   TContext
 > => {
   return useMutation(getDeletePromptMutationOptions(options));
+};
+
+/**
+ * @summary List transcript segments for a session
+ */
+export const getListTranscriptSegmentsUrl = (sessionId: number) => {
+  return `/api/sessions/${sessionId}/transcripts`;
+};
+
+export const listTranscriptSegments = async (
+  sessionId: number,
+  options?: RequestInit,
+): Promise<TranscriptSegment[]> => {
+  return customFetch<TranscriptSegment[]>(
+    getListTranscriptSegmentsUrl(sessionId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTranscriptSegmentsQueryKey = (sessionId: number) => {
+  return [`/api/sessions/${sessionId}/transcripts`] as const;
+};
+
+export const getListTranscriptSegmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTranscriptSegments>>,
+  TError = ErrorType<unknown>,
+>(
+  sessionId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTranscriptSegments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTranscriptSegmentsQueryKey(sessionId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTranscriptSegments>>
+  > = ({ signal }) =>
+    listTranscriptSegments(sessionId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!sessionId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTranscriptSegments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTranscriptSegmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTranscriptSegments>>
+>;
+export type ListTranscriptSegmentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List transcript segments for a session
+ */
+
+export function useListTranscriptSegments<
+  TData = Awaited<ReturnType<typeof listTranscriptSegments>>,
+  TError = ErrorType<unknown>,
+>(
+  sessionId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTranscriptSegments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTranscriptSegmentsQueryOptions(
+    sessionId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a single transcript segment
+ */
+export const getAddTranscriptSegmentUrl = (sessionId: number) => {
+  return `/api/sessions/${sessionId}/transcripts`;
+};
+
+export const addTranscriptSegment = async (
+  sessionId: number,
+  createTranscriptSegmentBody: CreateTranscriptSegmentBody,
+  options?: RequestInit,
+): Promise<TranscriptSegment> => {
+  return customFetch<TranscriptSegment>(getAddTranscriptSegmentUrl(sessionId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTranscriptSegmentBody),
+  });
+};
+
+export const getAddTranscriptSegmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTranscriptSegment>>,
+    TError,
+    { sessionId: number; data: BodyType<CreateTranscriptSegmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addTranscriptSegment>>,
+  TError,
+  { sessionId: number; data: BodyType<CreateTranscriptSegmentBody> },
+  TContext
+> => {
+  const mutationKey = ["addTranscriptSegment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addTranscriptSegment>>,
+    { sessionId: number; data: BodyType<CreateTranscriptSegmentBody> }
+  > = (props) => {
+    const { sessionId, data } = props ?? {};
+
+    return addTranscriptSegment(sessionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddTranscriptSegmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addTranscriptSegment>>
+>;
+export type AddTranscriptSegmentMutationBody =
+  BodyType<CreateTranscriptSegmentBody>;
+export type AddTranscriptSegmentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a single transcript segment
+ */
+export const useAddTranscriptSegment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTranscriptSegment>>,
+    TError,
+    { sessionId: number; data: BodyType<CreateTranscriptSegmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addTranscriptSegment>>,
+  TError,
+  { sessionId: number; data: BodyType<CreateTranscriptSegmentBody> },
+  TContext
+> => {
+  return useMutation(getAddTranscriptSegmentMutationOptions(options));
+};
+
+/**
+ * @summary Delete all transcript segments for a session
+ */
+export const getClearTranscriptSegmentsUrl = (sessionId: number) => {
+  return `/api/sessions/${sessionId}/transcripts`;
+};
+
+export const clearTranscriptSegments = async (
+  sessionId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getClearTranscriptSegmentsUrl(sessionId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getClearTranscriptSegmentsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearTranscriptSegments>>,
+    TError,
+    { sessionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearTranscriptSegments>>,
+  TError,
+  { sessionId: number },
+  TContext
+> => {
+  const mutationKey = ["clearTranscriptSegments"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearTranscriptSegments>>,
+    { sessionId: number }
+  > = (props) => {
+    const { sessionId } = props ?? {};
+
+    return clearTranscriptSegments(sessionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearTranscriptSegmentsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearTranscriptSegments>>
+>;
+
+export type ClearTranscriptSegmentsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete all transcript segments for a session
+ */
+export const useClearTranscriptSegments = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearTranscriptSegments>>,
+    TError,
+    { sessionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clearTranscriptSegments>>,
+  TError,
+  { sessionId: number },
+  TContext
+> => {
+  return useMutation(getClearTranscriptSegmentsMutationOptions(options));
+};
+
+/**
+ * @summary Add multiple transcript segments at once
+ */
+export const getAddTranscriptSegmentsBatchUrl = (sessionId: number) => {
+  return `/api/sessions/${sessionId}/transcripts/batch`;
+};
+
+export const addTranscriptSegmentsBatch = async (
+  sessionId: number,
+  createTranscriptSegmentsBatchBody: CreateTranscriptSegmentsBatchBody,
+  options?: RequestInit,
+): Promise<TranscriptSegment[]> => {
+  return customFetch<TranscriptSegment[]>(
+    getAddTranscriptSegmentsBatchUrl(sessionId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createTranscriptSegmentsBatchBody),
+    },
+  );
+};
+
+export const getAddTranscriptSegmentsBatchMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTranscriptSegmentsBatch>>,
+    TError,
+    { sessionId: number; data: BodyType<CreateTranscriptSegmentsBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addTranscriptSegmentsBatch>>,
+  TError,
+  { sessionId: number; data: BodyType<CreateTranscriptSegmentsBatchBody> },
+  TContext
+> => {
+  const mutationKey = ["addTranscriptSegmentsBatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addTranscriptSegmentsBatch>>,
+    { sessionId: number; data: BodyType<CreateTranscriptSegmentsBatchBody> }
+  > = (props) => {
+    const { sessionId, data } = props ?? {};
+
+    return addTranscriptSegmentsBatch(sessionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddTranscriptSegmentsBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addTranscriptSegmentsBatch>>
+>;
+export type AddTranscriptSegmentsBatchMutationBody =
+  BodyType<CreateTranscriptSegmentsBatchBody>;
+export type AddTranscriptSegmentsBatchMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add multiple transcript segments at once
+ */
+export const useAddTranscriptSegmentsBatch = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTranscriptSegmentsBatch>>,
+    TError,
+    { sessionId: number; data: BodyType<CreateTranscriptSegmentsBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addTranscriptSegmentsBatch>>,
+  TError,
+  { sessionId: number; data: BodyType<CreateTranscriptSegmentsBatchBody> },
+  TContext
+> => {
+  return useMutation(getAddTranscriptSegmentsBatchMutationOptions(options));
+};
+
+/**
+ * @summary Delete a single transcript segment
+ */
+export const getDeleteTranscriptSegmentUrl = (
+  sessionId: number,
+  id: number,
+) => {
+  return `/api/sessions/${sessionId}/transcripts/${id}`;
+};
+
+export const deleteTranscriptSegment = async (
+  sessionId: number,
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTranscriptSegmentUrl(sessionId, id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTranscriptSegmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTranscriptSegment>>,
+    TError,
+    { sessionId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTranscriptSegment>>,
+  TError,
+  { sessionId: number; id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTranscriptSegment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTranscriptSegment>>,
+    { sessionId: number; id: number }
+  > = (props) => {
+    const { sessionId, id } = props ?? {};
+
+    return deleteTranscriptSegment(sessionId, id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTranscriptSegmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTranscriptSegment>>
+>;
+
+export type DeleteTranscriptSegmentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a single transcript segment
+ */
+export const useDeleteTranscriptSegment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTranscriptSegment>>,
+    TError,
+    { sessionId: number; id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTranscriptSegment>>,
+  TError,
+  { sessionId: number; id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTranscriptSegmentMutationOptions(options));
 };
 
 /**

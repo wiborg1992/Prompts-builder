@@ -87,14 +87,7 @@ export const ListContextItemsParams = zod.object({
 export const ListContextItemsResponseItem = zod.object({
   id: zod.number(),
   sessionId: zod.number(),
-  type: zod.enum([
-    "transcript",
-    "note",
-    "file",
-    "image",
-    "requirement",
-    "paste",
-  ]),
+  type: zod.enum(["note", "file", "image", "requirement", "paste"]),
   label: zod.string().nullish(),
   content: zod.string(),
   fileUrl: zod.string().nullish(),
@@ -112,14 +105,7 @@ export const AddContextItemParams = zod.object({
 });
 
 export const AddContextItemBody = zod.object({
-  type: zod.enum([
-    "transcript",
-    "note",
-    "file",
-    "image",
-    "requirement",
-    "paste",
-  ]),
+  type: zod.enum(["note", "file", "image", "requirement", "paste"]),
   label: zod.string().nullish(),
   content: zod.string(),
   fileUrl: zod.string().nullish(),
@@ -143,14 +129,7 @@ export const UpdateContextItemBody = zod.object({
 export const UpdateContextItemResponse = zod.object({
   id: zod.number(),
   sessionId: zod.number(),
-  type: zod.enum([
-    "transcript",
-    "note",
-    "file",
-    "image",
-    "requirement",
-    "paste",
-  ]),
+  type: zod.enum(["note", "file", "image", "requirement", "paste"]),
   label: zod.string().nullish(),
   content: zod.string(),
   fileUrl: zod.string().nullish(),
@@ -230,6 +209,73 @@ export const DeletePromptParams = zod.object({
 });
 
 /**
+ * @summary List transcript segments for a session
+ */
+export const ListTranscriptSegmentsParams = zod.object({
+  sessionId: zod.coerce.number(),
+});
+
+export const ListTranscriptSegmentsResponseItem = zod.object({
+  id: zod.number(),
+  sessionId: zod.number(),
+  speaker: zod.string(),
+  text: zod.string(),
+  language: zod.string().nullish(),
+  recordingId: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListTranscriptSegmentsResponse = zod.array(
+  ListTranscriptSegmentsResponseItem,
+);
+
+/**
+ * @summary Add a single transcript segment
+ */
+export const AddTranscriptSegmentParams = zod.object({
+  sessionId: zod.coerce.number(),
+});
+
+export const AddTranscriptSegmentBody = zod.object({
+  speaker: zod.string(),
+  text: zod.string(),
+  language: zod.string().nullish(),
+  recordingId: zod.string().nullish(),
+});
+
+/**
+ * @summary Delete all transcript segments for a session
+ */
+export const ClearTranscriptSegmentsParams = zod.object({
+  sessionId: zod.coerce.number(),
+});
+
+/**
+ * @summary Add multiple transcript segments at once
+ */
+export const AddTranscriptSegmentsBatchParams = zod.object({
+  sessionId: zod.coerce.number(),
+});
+
+export const AddTranscriptSegmentsBatchBody = zod.object({
+  segments: zod.array(
+    zod.object({
+      speaker: zod.string(),
+      text: zod.string(),
+      language: zod.string().nullish(),
+      recordingId: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Delete a single transcript segment
+ */
+export const DeleteTranscriptSegmentParams = zod.object({
+  sessionId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Transcribe audio using selected provider
  */
 export const TranscribeAudioBody = zod.object({
@@ -259,6 +305,7 @@ export const GetSessionSummaryParams = zod.object({
 export const GetSessionSummaryResponse = zod.object({
   sessionId: zod.number(),
   contextCount: zod.number(),
+  transcriptSegmentCount: zod.number(),
   promptCount: zod.number(),
   contextByType: zod.record(zod.string(), zod.number()),
   latestPromptPreview: zod.string().nullish(),

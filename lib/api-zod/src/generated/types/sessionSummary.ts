@@ -10,6 +10,7 @@ import type { SessionSummaryContextByType } from "./sessionSummaryContextByType"
 export interface SessionSummary {
   sessionId: number;
   contextCount: number;
+  transcriptSegmentCount: number;
   promptCount: number;
   contextByType: SessionSummaryContextByType;
   /** @nullable */

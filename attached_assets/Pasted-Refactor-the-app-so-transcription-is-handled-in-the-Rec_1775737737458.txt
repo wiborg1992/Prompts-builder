@@ -1,0 +1,88 @@
+Refactor the app so transcription is handled in the Record workspace and not inside Context.
+ 
+Right now recorded transcription is being placed under Context.
+
+That is wrong and must be fixed.
+ 
+The recorded transcription should belong to the Record section only.
+ 
+What to change
+ 
+1. Move recorded transcription out of Context
+ 
+Do not store or display the meeting transcription as a context item.
+
+Do not place transcript text under the Context tab.
+
+Do not treat recorded speech as uploaded context.
+ 
+2. Keep transcription inside Record
+ 
+The Record workspace should contain the transcript log for the current session.
+
+When the user records a meeting, the transcription should appear and remain inside Record.
+ 
+3. Add a transcript log inside Record
+ 
+Create a clear transcript log in the Record section.
+
+The user should be able to see the recorded transcription history there instead of under Context.
+ 
+The transcript log in Record should show
+ 
+live transcript while recording
+
+previous transcript chunks from the session
+
+the full accumulated transcript for the session
+ 
+The transcript log should feel like the main place where recorded speech lives.
+ 
+4. Context should stay for actual context only
+ 
+The Context tab should only be used for actual added context such as
+ 
+uploaded files
+
+uploaded images
+
+documents
+
+pasted requirements
+
+manual context text
+ 
+Do not place recorded meeting transcription there.
+ 
+5. Support multiple files in Context
+ 
+In the Context tab, the user must be able to add more than one file.
+
+Do not limit the session to a single uploaded file.
+ 
+The user should be able to
+ 
+upload multiple files
+
+see all uploaded files in a list
+
+remove individual files
+
+keep all uploaded files attached to the same session
+ 
+Acceptance criteria
+ 
+This change is successful if
+ 
+recorded transcription no longer appears under Context
+
+recorded transcription appears inside Record only
+
+Record contains a visible transcript log for the session
+
+Context only contains manually added or uploaded context items
+
+the user can upload multiple files in Context
+
+multiple uploaded files are shown correctly in the session
+ 

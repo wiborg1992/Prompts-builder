@@ -26,7 +26,6 @@ import {
   Trash2,
   FileText,
   Image as ImageIcon,
-  MessageSquare,
   Plus,
   FileQuestion,
   Type,
@@ -36,10 +35,8 @@ import {
   X,
 } from "lucide-react";
 
-const TypeIcon = ({ type }: { type: ContextItemType }) => {
+const TypeIcon = ({ type }: { type: string }) => {
   switch (type) {
-    case "transcript":
-      return <MessageSquare className="w-4 h-4 text-blue-400" />;
     case "note":
       return <FileText className="w-4 h-4 text-amber-400" />;
     case "image":
@@ -55,11 +52,19 @@ const TypeIcon = ({ type }: { type: ContextItemType }) => {
   }
 };
 
-const textTypes: ContextItemType[] = ["note", "paste", "requirement", "transcript"];
+const textTypes: ContextItemType[] = ["note", "paste", "requirement"];
 const uploadTypes: ContextItemType[] = ["file", "image"];
 
 function isTextType(type: ContextItemType): boolean {
   return textTypes.includes(type);
+}
+
+interface PendingUpload {
+  id: string;
+  file: File;
+  status: "uploading" | "saving" | "done" | "error";
+  progress: number;
+  error?: string;
 }
 
 export function ContextPanel({ sessionId }: { sessionId: number }) {
@@ -77,42 +82,18 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
   const [newContent, setNewContent] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
 
   const { uploadFile, isUploading, progress } = useUpload({
-    onSuccess: (response) => {
-      addItem.mutate({
-        sessionId,
-        data: {
-          type: newType,
-          label: newLabel.trim() || uploadedFileName || undefined,
-          content: uploadedFileName || "Uploaded file",
-          fileUrl: response.objectPath,
-          filename: uploadedFileName,
-          mimeType: uploadedMimeType,
-        },
-      });
-    },
-    onError: (err) => {
-      setUploadError(err.message);
-    },
+    onSuccess: () => {},
+    onError: () => {},
   });
-
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-  const [uploadedMimeType, setUploadedMimeType] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const addItem = useAddContextItem({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListContextItemsQueryKey(sessionId) });
         queryClient.invalidateQueries({ queryKey: getGetSessionSummaryQueryKey(sessionId) });
-        setIsAdding(false);
-        setNewLabel("");
-        setNewContent("");
-        setNewType("note");
-        setUploadedFileName(null);
-        setUploadedMimeType(null);
-        setUploadError(null);
       },
     },
   });
@@ -128,43 +109,95 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
 
   const handleAdd = () => {
     if (!newContent.trim()) return;
-    addItem.mutate({
-      sessionId,
-      data: {
-        type: newType,
-        label: newLabel.trim() || undefined,
-        content: newContent,
+    addItem.mutate(
+      {
+        sessionId,
+        data: {
+          type: newType,
+          label: newLabel.trim() || undefined,
+          content: newContent,
+        },
       },
-    });
+      {
+        onSuccess: () => {
+          setIsAdding(false);
+          setNewLabel("");
+          setNewContent("");
+          setNewType("note");
+        },
+      }
+    );
   };
 
   const handleDelete = (id: number) => {
     deleteItem.mutate({ sessionId, id });
   };
 
-  const handleFileSelect = useCallback(
+  const handleFileUpload = useCallback(
     async (file: File) => {
-      setUploadError(null);
-      setUploadedFileName(file.name);
-      setUploadedMimeType(file.type);
-      await uploadFile(file);
+      const uploadId = `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      setPendingUploads((prev) => [
+        ...prev,
+        { id: uploadId, file, status: "uploading", progress: 0 },
+      ]);
+
+      try {
+        const response = await uploadFile(file);
+
+        setPendingUploads((prev) =>
+          prev.map((u) => (u.id === uploadId ? { ...u, status: "saving" as const, progress: 100 } : u))
+        );
+
+        await addItem.mutateAsync({
+          sessionId,
+          data: {
+            type: newType,
+            label: file.name,
+            content: file.name,
+            fileUrl: response.objectPath,
+            filename: file.name,
+            mimeType: file.type,
+          },
+        });
+
+        setPendingUploads((prev) => prev.filter((u) => u.id !== uploadId));
+      } catch (err: any) {
+        setPendingUploads((prev) =>
+          prev.map((u) =>
+            u.id === uploadId
+              ? { ...u, status: "error" as const, error: err?.message || "Upload failed" }
+              : u
+          )
+        );
+      }
     },
-    [uploadFile]
+    [uploadFile, addItem, sessionId, newType]
+  );
+
+  const handleFilesSelect = useCallback(
+    (files: FileList | File[]) => {
+      Array.from(files).forEach((file) => handleFileUpload(file));
+    },
+    [handleFileUpload]
   );
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileSelect(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFilesSelect(files);
+      e.target.value = "";
+    }
   };
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
-      const file = e.dataTransfer.files?.[0];
-      if (file) handleFileSelect(file);
+      const files = e.dataTransfer.files;
+      if (files.length > 0) handleFilesSelect(files);
     },
-    [handleFileSelect]
+    [handleFilesSelect]
   );
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -174,6 +207,10 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
 
   const handleDragLeave = () => {
     setDragOver(false);
+  };
+
+  const dismissUploadError = (uploadId: string) => {
+    setPendingUploads((prev) => prev.filter((u) => u.id !== uploadId));
   };
 
   const acceptTypes =
@@ -226,14 +263,16 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex-1">
-                    <Input
-                      placeholder="Label (Optional)"
-                      value={newLabel}
-                      onChange={(e) => setNewLabel(e.target.value)}
-                      data-testid="input-context-label"
-                    />
-                  </div>
+                  {isTextType(newType) && (
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Label (Optional)"
+                        value={newLabel}
+                        onChange={(e) => setNewLabel(e.target.value)}
+                        data-testid="input-context-label"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {isTextType(newType) ? (
@@ -267,55 +306,78 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
                       accept={acceptTypes}
                       onChange={handleFileInputChange}
                       className="hidden"
+                      multiple
                       data-testid="input-file"
                     />
 
-                    {isUploading ? (
-                      <div className="space-y-2">
-                        <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin" />
-                        <p className="text-sm text-muted-foreground">
-                          Uploading {uploadedFileName}... {progress}%
+                    <div className="space-y-3">
+                      <Upload className="w-10 h-10 mx-auto text-muted-foreground/50" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          {newType === "image"
+                            ? "Drop images here"
+                            : "Drop files here"}
+                        </p>
+                        <p className="text-xs text-muted-foreground/70 mt-1">
+                          or{" "}
+                          <button
+                            className="text-primary underline cursor-pointer"
+                            onClick={() => fileInputRef.current?.click()}
+                            type="button"
+                          >
+                            browse
+                          </button>{" "}
+                          to upload (multiple files supported)
+                        </p>
+                        <p className="text-xs text-muted-foreground/50 mt-2">
+                          {newType === "image"
+                            ? "PNG, JPG, JPEG, WebP"
+                            : "PDF, DOCX, TXT, MD, CSV, JSON"}
                         </p>
                       </div>
-                    ) : uploadedFileName && !uploadError ? (
-                      <div className="space-y-2">
-                        <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin" />
-                        <p className="text-sm text-muted-foreground">
-                          Saving {uploadedFileName}...
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <Upload className="w-10 h-10 mx-auto text-muted-foreground/50" />
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">
-                            {newType === "image"
-                              ? "Drop an image here"
-                              : "Drop a file here"}
-                          </p>
-                          <p className="text-xs text-muted-foreground/70 mt-1">
-                            or{" "}
-                            <button
-                              className="text-primary underline cursor-pointer"
-                              onClick={() => fileInputRef.current?.click()}
-                              type="button"
-                            >
-                              browse
-                            </button>{" "}
-                            to upload
-                          </p>
-                          <p className="text-xs text-muted-foreground/50 mt-2">
-                            {newType === "image"
-                              ? "PNG, JPG, JPEG, WebP"
-                              : "PDF, DOCX, TXT, MD, CSV, JSON"}
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                    </div>
+                  </div>
+                )}
 
-                    {uploadError && (
-                      <p className="text-xs text-destructive mt-2">{uploadError}</p>
-                    )}
+                {pendingUploads.length > 0 && (
+                  <div className="space-y-2">
+                    {pendingUploads.map((upload) => (
+                      <div
+                        key={upload.id}
+                        className="flex items-center gap-2 text-xs px-3 py-2 rounded-md bg-background/50 border border-border/30"
+                      >
+                        {upload.status === "uploading" && (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                            <span className="text-muted-foreground flex-1 truncate">
+                              Uploading {upload.file.name}...
+                            </span>
+                          </>
+                        )}
+                        {upload.status === "saving" && (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                            <span className="text-muted-foreground flex-1 truncate">
+                              Saving {upload.file.name}...
+                            </span>
+                          </>
+                        )}
+                        {upload.status === "error" && (
+                          <>
+                            <X className="w-3.5 h-3.5 text-destructive" />
+                            <span className="text-destructive flex-1 truncate">
+                              {upload.file.name}: {upload.error}
+                            </span>
+                            <button
+                              className="text-muted-foreground hover:text-foreground"
+                              onClick={() => dismissUploadError(upload.id)}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -324,10 +386,9 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
                     variant="ghost"
                     onClick={() => {
                       setIsAdding(false);
-                      setUploadError(null);
-                      setUploadedFileName(null);
+                      setPendingUploads([]);
                     }}
-                    disabled={addItem.isPending || isUploading}
+                    disabled={addItem.isPending || pendingUploads.some((u) => u.status === "uploading" || u.status === "saving")}
                     data-testid="button-cancel-context"
                   >
                     Cancel
@@ -356,7 +417,7 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
             <div className="text-center py-12 px-4 border border-dashed border-border rounded-xl">
               <p className="text-muted-foreground text-sm">No context items yet.</p>
               <p className="text-muted-foreground text-xs mt-1">
-                Record a session or add notes, files, and requirements.
+                Add notes, files, images, and requirements to build context for your session.
               </p>
             </div>
           ) : (

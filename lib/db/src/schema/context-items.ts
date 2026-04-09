@@ -3,7 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { sessionsTable } from "./sessions";
 
-export const contextItemTypeEnum = ["transcript", "note", "file", "image", "requirement", "paste"] as const;
+export const contextItemTypeEnum = ["note", "file", "image", "requirement", "paste"] as const;
 
 export const contextItemsTable = pgTable("context_items", {
   id: serial("id").primaryKey(),

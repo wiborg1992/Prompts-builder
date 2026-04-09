@@ -34,7 +34,6 @@ export type ContextItemType =
   (typeof ContextItemType)[keyof typeof ContextItemType];
 
 export const ContextItemType = {
-  transcript: "transcript",
   note: "note",
   file: "file",
   image: "image",
@@ -62,7 +61,6 @@ export type CreateContextItemBodyType =
   (typeof CreateContextItemBodyType)[keyof typeof CreateContextItemBodyType];
 
 export const CreateContextItemBodyType = {
-  transcript: "transcript",
   note: "note",
   file: "file",
   image: "image",
@@ -143,10 +141,36 @@ export type SessionSummaryContextByType = { [key: string]: number };
 export interface SessionSummary {
   sessionId: number;
   contextCount: number;
+  transcriptSegmentCount: number;
   promptCount: number;
   contextByType: SessionSummaryContextByType;
   /** @nullable */
   latestPromptPreview?: string | null;
+}
+
+export interface TranscriptSegment {
+  id: number;
+  sessionId: number;
+  speaker: string;
+  text: string;
+  /** @nullable */
+  language?: string | null;
+  /** @nullable */
+  recordingId?: string | null;
+  createdAt: string;
+}
+
+export interface CreateTranscriptSegmentBody {
+  speaker: string;
+  text: string;
+  /** @nullable */
+  language?: string | null;
+  /** @nullable */
+  recordingId?: string | null;
+}
+
+export interface CreateTranscriptSegmentsBatchBody {
+  segments: CreateTranscriptSegmentBody[];
 }
 
 export interface UploadUrlRequest {

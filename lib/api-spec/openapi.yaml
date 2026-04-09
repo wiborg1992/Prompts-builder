@@ -16,6 +16,8 @@ tags:
     description: Session context items
   - name: prompts
     description: Prompt generation and history
+  - name: transcripts
+    description: Session transcript segments from recordings
   - name: transcription
     description: Audio transcription via Deepgram
   - name: Storage
@@ -316,6 +318,110 @@ paths:
         "204":
           description: Deleted
 
+  /sessions/{sessionId}/transcripts:
+    get:
+      operationId: listTranscriptSegments
+      tags: [transcripts]
+      summary: List transcript segments for a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of transcript segments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TranscriptSegment"
+    post:
+      operationId: addTranscriptSegment
+      tags: [transcripts]
+      summary: Add a single transcript segment
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTranscriptSegmentBody"
+      responses:
+        "201":
+          description: Created segment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscriptSegment"
+    delete:
+      operationId: clearTranscriptSegments
+      tags: [transcripts]
+      summary: Delete all transcript segments for a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /sessions/{sessionId}/transcripts/batch:
+    post:
+      operationId: addTranscriptSegmentsBatch
+      tags: [transcripts]
+      summary: Add multiple transcript segments at once
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTranscriptSegmentsBatchBody"
+      responses:
+        "201":
+          description: Created segments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TranscriptSegment"
+
+  /sessions/{sessionId}/transcripts/{id}:
+    delete:
+      operationId: deleteTranscriptSegment
+      tags: [transcripts]
+      summary: Delete a single transcript segment
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /transcribe:
     post:
       operationId: transcribeAudio
@@ -495,7 +601,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [transcript, note, file, image, requirement, paste]
+          enum: [note, file, image, requirement, paste]
         label:
           type: ["string", "null"]
         content:
@@ -521,7 +627,7 @@ components:
       properties:
         type:
           type: string
-          enum: [transcript, note, file, image, requirement, paste]
+          enum: [note, file, image, requirement, paste]
         label:
           type: ["string", "null"]
         content:
@@ -618,6 +724,8 @@ components:
           type: integer
         contextCount:
           type: integer
+        transcriptSegmentCount:
+          type: integer
         promptCount:
           type: integer
         contextByType:
@@ -629,8 +737,59 @@ components:
       required:
         - sessionId
         - contextCount
+        - transcriptSegmentCount
         - promptCount
         - contextByType
+
+    TranscriptSegment:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        speaker:
+          type: string
+        text:
+          type: string
+        language:
+          type: ["string", "null"]
+        recordingId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sessionId
+        - speaker
+        - text
+        - createdAt
+
+    CreateTranscriptSegmentBody:
+      type: object
+      properties:
+        speaker:
+          type: string
+        text:
+          type: string
+        language:
+          type: ["string", "null"]
+        recordingId:
+          type: ["string", "null"]
+      required:
+        - speaker
+        - text
+
+    CreateTranscriptSegmentsBatchBody:
+      type: object
+      properties:
+        segments:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateTranscriptSegmentBody"
+      required:
+        - segments
 
     UploadUrlRequest:
       type: object

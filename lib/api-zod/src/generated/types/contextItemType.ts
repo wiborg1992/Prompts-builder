@@ -10,7 +10,6 @@ export type ContextItemType =
   (typeof ContextItemType)[keyof typeof ContextItemType];
 
 export const ContextItemType = {
-  transcript: "transcript",
   note: "note",
   file: "file",
   image: "image",

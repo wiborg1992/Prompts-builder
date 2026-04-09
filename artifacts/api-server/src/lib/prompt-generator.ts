@@ -1,27 +1,37 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
-import type { ContextItem } from "@workspace/db";
+import type { ContextItem, TranscriptSegment } from "@workspace/db";
 
 export async function generateDesignPrompt(
   contextItems: ContextItem[],
+  transcriptSegments: TranscriptSegment[],
   instruction: string | null | undefined
 ): Promise<string> {
-  if (contextItems.length === 0) {
-    throw new Error("No context items available to generate a prompt from.");
+  if (contextItems.length === 0 && transcriptSegments.length === 0) {
+    throw new Error("No context or transcript available to generate a prompt from.");
   }
 
-  const contextSections = contextItems.map((item) => {
+  const sections: string[] = [];
+
+  if (transcriptSegments.length > 0) {
+    const transcriptText = transcriptSegments
+      .map((s) => `[${s.speaker}] ${s.text}`)
+      .join("\n");
+    sections.push(`[MEETING TRANSCRIPT]\n${transcriptText}`);
+  }
+
+  for (const item of contextItems) {
     const label = item.label ? ` (${item.label})` : "";
 
     if ((item.type === "file" || item.type === "image") && item.filename) {
       const fileMeta = `File: ${item.filename}${item.mimeType ? ` [${item.mimeType}]` : ""}`;
       const description = item.content ? `\nDescription: ${item.content}` : "";
-      return `[${item.type.toUpperCase()}${label}]\n${fileMeta}${description}`;
+      sections.push(`[${item.type.toUpperCase()}${label}]\n${fileMeta}${description}`);
+    } else {
+      sections.push(`[${item.type.toUpperCase()}${label}]\n${item.content}`);
     }
+  }
 
-    return `[${item.type.toUpperCase()}${label}]\n${item.content}`;
-  });
-
-  const contextBlock = contextSections.join("\n\n---\n\n");
+  const contextBlock = sections.join("\n\n---\n\n");
 
   const systemPrompt = `You are a design prompt architect. Your job is to compose a clear, structured, and actionable design prompt based on the user-supplied context.
 
@@ -33,6 +43,7 @@ Rules:
 - Do not invent requirements, screens, flows, or user roles that the context doesn't mention.
 - If the context is sparse, produce a generic but coherent prompt that reflects exactly what was provided.
 - Context may include uploaded files and images described by filename and type. Treat these as reference materials.
+- Context may include meeting transcripts with speaker labels. Extract key requirements and decisions from conversations.
 - Output only the prompt text — no meta-commentary, no headers, no preamble.`;
 
   const userMessage = instruction

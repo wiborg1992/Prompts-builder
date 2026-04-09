@@ -73,7 +73,13 @@ export default function SessionWorkspace() {
         <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
           {summary && (
             <>
-              <span data-testid="text-context-count">{summary.contextCount} Items</span>
+              {(summary.transcriptSegmentCount ?? 0) > 0 && (
+                <>
+                  <span data-testid="text-transcript-count">{summary.transcriptSegmentCount} Transcript</span>
+                  <span>&bull;</span>
+                </>
+              )}
+              <span data-testid="text-context-count">{summary.contextCount} Context</span>
               <span>&bull;</span>
               <span data-testid="text-prompt-count">{summary.promptCount} Prompts</span>
             </>

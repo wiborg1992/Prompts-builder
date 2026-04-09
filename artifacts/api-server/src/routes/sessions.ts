@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, ne, and } from "drizzle-orm";
 import { db, sessionsTable } from "@workspace/db";
 import {
   CreateSessionBody,
@@ -9,7 +9,7 @@ import {
   DeleteSessionParams,
   GetSessionSummaryParams,
 } from "@workspace/api-zod";
-import { contextItemsTable, generatedPromptsTable } from "@workspace/db";
+import { contextItemsTable, generatedPromptsTable, transcriptSegmentsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -116,7 +116,15 @@ router.get("/sessions/:sessionId/summary", async (req, res): Promise<void> => {
   const contextItems = await db
     .select()
     .from(contextItemsTable)
-    .where(eq(contextItemsTable.sessionId, sessionId));
+    .where(and(
+      eq(contextItemsTable.sessionId, sessionId),
+      ne(contextItemsTable.type, "transcript")
+    ));
+
+  const transcriptSegments = await db
+    .select({ id: transcriptSegmentsTable.id })
+    .from(transcriptSegmentsTable)
+    .where(eq(transcriptSegmentsTable.sessionId, sessionId));
 
   const prompts = await db
     .select()
@@ -143,6 +151,7 @@ router.get("/sessions/:sessionId/summary", async (req, res): Promise<void> => {
   res.json({
     sessionId,
     contextCount: contextItems.length,
+    transcriptSegmentCount: transcriptSegments.length,
     promptCount: allPrompts.length,
     contextByType,
     latestPromptPreview,

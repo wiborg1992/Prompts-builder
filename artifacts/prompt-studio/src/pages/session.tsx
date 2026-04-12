@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Loader2, Mic, FolderOpen, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Mic, FolderOpen, Sparkles, ClipboardList } from "lucide-react";
 import { RecordingWorkspace } from "@/components/session/recording-workspace";
 import { ContextPanel } from "@/components/session/context-panel";
 import { PromptPanel } from "@/components/session/prompt-panel";
@@ -108,20 +108,32 @@ export default function SessionWorkspace() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
-          {summary && (
-            <>
-              {(summary.transcriptSegmentCount ?? 0) > 0 && (
-                <>
-                  <span data-testid="text-transcript-count">{summary.transcriptSegmentCount} Transcript</span>
-                  <span>&bull;</span>
-                </>
-              )}
-              <span data-testid="text-context-count">{summary.contextCount} Context</span>
-              <span>&bull;</span>
-              <span data-testid="text-prompt-count">{summary.promptCount} Prompts</span>
-            </>
-          )}
+        <div className="flex items-center gap-3">
+          <div className="text-xs font-mono text-muted-foreground flex items-center gap-2">
+            {summary && (
+              <>
+                {(summary.transcriptSegmentCount ?? 0) > 0 && (
+                  <>
+                    <span data-testid="text-transcript-count">{summary.transcriptSegmentCount} Transcript</span>
+                    <span>&bull;</span>
+                  </>
+                )}
+                <span data-testid="text-context-count">{summary.contextCount} Context</span>
+                <span>&bull;</span>
+                <span data-testid="text-prompt-count">{summary.promptCount} Prompts</span>
+              </>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+            onClick={() => setShowWizard(true)}
+            title="Genåbn Session Brief"
+          >
+            <ClipboardList className="w-3.5 h-3.5" />
+            Session Brief
+          </Button>
         </div>
       </header>
 

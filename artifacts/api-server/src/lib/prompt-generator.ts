@@ -37,6 +37,34 @@ Before doing anything else, scan ALL context items — files, images, notes, req
 0.4 If no design guidelines are found in any context item, write: "No design guidelines detected in provided context."
 
 ===========================
+STEP 0.5 — INCREMENTAL PROMPT REVIEW (RUNS ONLY WHEN PREVIOUS PROMPT IS PROVIDED)
+===========================
+
+When a <previous_prompt> block is present in the input, this session is in INCREMENTAL MODE. You are refining and extending an existing prompt, not starting from scratch.
+
+0.5.1 Read the previous prompt carefully and identify:
+  - What requirements, design constraints, and goals were already established
+  - The structure and framing of the previous prompt
+  - The version number and any instruction that guided the previous generation
+
+0.5.2 Identify what is NEW since the previous prompt:
+  - Any new transcript content (dialogue added after the previous generation)
+  - Any new or modified context items (new files, notes, requirements, or image annotations)
+  - The user's explicit instruction for this generation (if provided)
+
+0.5.3 Build upon — do not replace:
+  - Preserve ALL established requirements from the previous prompt unless new information explicitly contradicts them
+  - Extend sections that have new input; do not truncate or simplify existing content
+  - If the user instruction calls for a different angle or deeper focus, ADD that layer rather than discarding what was there
+  - The DESIGN GUIDELINES section must always carry forward the full accumulated set of constraints, supplemented with any new ones
+
+0.5.4 Signal the evolution clearly in the PRIORITIZATION SUMMARY:
+  - State concisely what changed from the previous version (e.g. "Refined:", "Extended:", "Added:", "Resolved conflict:")
+  - If nothing substantively new was provided, say so and explain what you deepened or tightened
+
+0.5.5 If NO previous prompt is present, skip this step entirely and proceed to STEP 1.
+
+===========================
 STEP 1 — CONVERSATION UNDERSTANDING & PRIORITIZATION
 ===========================
 
@@ -155,10 +183,17 @@ OUTPUT RULES
 - If the context is very sparse, produce a focused but coherent prompt reflecting exactly what was provided.
 - The DESIGN GUIDELINES section is always the first section and always contains extracted values or the explicit "no guidelines detected" statement.`;
 
+export interface PreviousPrompt {
+  version: number;
+  content: string;
+  instruction?: string | null;
+}
+
 export async function generateDesignPrompt(
   contextItems: ContextItem[],
   transcriptSegments: TranscriptSegment[],
-  instruction: string | null | undefined
+  instruction: string | null | undefined,
+  previousPrompt?: PreviousPrompt | null
 ): Promise<string> {
   if (contextItems.length === 0 && transcriptSegments.length === 0) {
     throw new Error("No context or transcript available to generate a prompt from.");
@@ -205,9 +240,17 @@ export async function generateDesignPrompt(
 
   const contextBlock = sections.join("\n\n");
 
+  const previousPromptBlock = previousPrompt
+    ? `\n\n<previous_prompt version="${previousPrompt.version}"${previousPrompt.instruction ? ` instruction="${escapeXmlAttr(previousPrompt.instruction)}"` : ""}>\n${previousPrompt.content}\n</previous_prompt>`
+    : "";
+
+  const modeNote = previousPrompt
+    ? `\n\n<generation_mode>INCREMENTAL — build upon and extend the previous prompt (v${previousPrompt.version}). Do NOT start from scratch.</generation_mode>`
+    : "";
+
   const userMessage = instruction
-    ? `<session_materials>\n${contextBlock}\n</session_materials>\n\n<user_instruction>\n${instruction}\n</user_instruction>\n\nCompose a structured design prompt based on these materials.`
-    : `<session_materials>\n${contextBlock}\n</session_materials>\n\nCompose a structured design prompt based on these materials.`;
+    ? `<session_materials>\n${contextBlock}\n</session_materials>${previousPromptBlock}${modeNote}\n\n<user_instruction>\n${instruction}\n</user_instruction>\n\nCompose a structured design prompt based on these materials.`
+    : `<session_materials>\n${contextBlock}\n</session_materials>${previousPromptBlock}${modeNote}\n\nCompose a structured design prompt based on these materials.`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",

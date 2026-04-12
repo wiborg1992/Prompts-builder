@@ -60,18 +60,21 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
     return;
   }
 
-  const existingVersions = await db
-    .select({ version: generatedPromptsTable.version })
+  const existingPrompts = await db
+    .select()
     .from(generatedPromptsTable)
     .where(eq(generatedPromptsTable.sessionId, params.data.sessionId))
     .orderBy(desc(generatedPromptsTable.version))
     .limit(1);
 
-  const nextVersion = existingVersions.length > 0
-    ? (existingVersions[0]?.version ?? 0) + 1
-    : 1;
+  const latestPrompt = existingPrompts[0] ?? null;
+  const nextVersion = latestPrompt ? latestPrompt.version + 1 : 1;
 
-  const content = await generateDesignPrompt(contextItems, transcriptSegments, instruction ?? null);
+  const previousPrompt = latestPrompt
+    ? { version: latestPrompt.version, content: latestPrompt.content, instruction: latestPrompt.instruction }
+    : null;
+
+  const content = await generateDesignPrompt(contextItems, transcriptSegments, instruction ?? null, previousPrompt);
 
   const [prompt] = await db
     .insert(generatedPromptsTable)

@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Sparkles, Edit2, Check, X, Trash2, Copy, ChevronDown } from "lucide-react";
+import { Sparkles, Edit2, Check, X, Trash2, Copy, GitMerge, Download } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,12 @@ function PromptMarkdown({ content }: { content: string }) {
   );
 }
 
+function getAutoDownloadPref(): boolean {
+  if (typeof window === "undefined") return true;
+  const stored = window.localStorage.getItem("prompt-studio-auto-download");
+  return stored ? stored === "true" : true;
+}
+
 export function PromptPanel({ sessionId }: { sessionId: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -62,6 +68,13 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
     }
   });
 
+  const sortedPrompts = prompts ? [...prompts].sort((a, b) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  ) : [];
+
+  const latestPrompt = sortedPrompts[0] ?? null;
+  const isIncremental = sortedPrompts.length > 0;
+
   const generatePrompt = useGeneratePrompt({
     mutation: {
       onSuccess: (newPrompt) => {
@@ -71,14 +84,16 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
         setSelectedId(newPrompt.id);
         setEditingId(null);
 
-        const url = `/api/sessions/${sessionId}/prompts/${newPrompt.id}/export`;
-        const a = document.createElement("a");
-        a.style.display = "none";
-        a.href = url;
-        a.download = "";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        if (getAutoDownloadPref()) {
+          const url = `/api/sessions/${sessionId}/prompts/${newPrompt.id}/export`;
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = url;
+          a.download = "";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
       }
     }
   });
@@ -134,26 +149,45 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
     });
   };
 
-  const sortedPrompts = prompts ? [...prompts].sort((a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  ) : [];
+  const handleDownload = (prompt: GeneratedPrompt) => {
+    const url = `/api/sessions/${sessionId}/prompts/${prompt.id}/export`;
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = url;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
   const effectiveSelectedId = selectedId ?? sortedPrompts[0]?.id ?? null;
   const selectedPrompt = sortedPrompts.find(p => p.id === effectiveSelectedId) ?? sortedPrompts[0] ?? null;
 
   return (
     <div className="flex flex-col h-full bg-muted/20">
-      <div className="flex-none p-4 border-b border-border bg-background flex flex-col gap-4">
+      <div className="flex-none p-4 border-b border-border bg-background flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2" data-testid="heading-prompt-panel">
             <Sparkles className="w-4 h-4 text-primary" />
             Prompt Output
           </h2>
+          {isIncremental && latestPrompt && (
+            <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full">
+              <GitMerge className="w-3 h-3" />
+              <span>Bygger på v{latestPrompt.version}</span>
+            </div>
+          )}
         </div>
+
+        {isIncremental && (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Næste generation bygger videre på <span className="text-foreground font-medium">v{latestPrompt?.version}</span> — eksisterende krav og retningslinjer bevares og udvides med ny kontekst.
+          </p>
+        )}
 
         <div className="flex gap-2">
           <Input
-            placeholder="Optional instruction (e.g. 'Make it focused on accessibility')"
+            placeholder={isIncremental ? `Hvad skal v${(latestPrompt?.version ?? 0) + 1} fokusere på? (valgfrit)` : "Valgfri instruktion (f.eks. 'Fokuser på tilgængelighed')"}
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
             className="flex-1"
@@ -168,16 +202,16 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
           <Button
             onClick={handleGenerate}
             disabled={generatePrompt.isPending}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
             data-testid="button-generate-prompt"
           >
             {generatePrompt.isPending ? (
               <span className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 animate-pulse" />
-                Generating...
+                {isIncremental ? "Opdaterer..." : "Genererer..."}
               </span>
             ) : (
-              "Generate"
+              isIncremental ? `Generer v${(latestPrompt?.version ?? 0) + 1}` : "Generer"
             )}
           </Button>
         </div>
@@ -191,7 +225,7 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
             }}
           >
             <SelectTrigger className="w-full bg-background border-border/60" data-testid="select-prompt-version">
-              <SelectValue placeholder="Select a prompt version" />
+              <SelectValue placeholder="Vælg en promptversion" />
             </SelectTrigger>
             <SelectContent>
               {sortedPrompts.map((prompt, index) => (
@@ -223,12 +257,17 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
               <Card className="border-primary/30 shadow-lg shadow-primary/5 bg-card" data-testid="card-latest-prompt">
                 <CardHeader className="p-3 border-b border-border/50 bg-card flex flex-row items-center justify-between space-y-0">
                   <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                      v{selectedPrompt.version}
+                    </span>
                     {selectedPrompt.instruction ? (
                       <span className="text-xs bg-secondary px-2 py-1 rounded-md text-secondary-foreground font-medium">
-                        Mål: {selectedPrompt.instruction}
+                        {selectedPrompt.instruction}
                       </span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Standard generering</span>
+                      <span className="text-xs text-muted-foreground">
+                        {selectedPrompt.version === 1 ? "Første generation" : `Inkrementel opdatering`}
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-1">
@@ -249,6 +288,15 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
                         </Button>
                         <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => handleCopy(selectedPrompt.content)} data-testid="button-copy-prompt">
                           <Copy className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-8 h-8"
+                          onClick={() => handleDownload(selectedPrompt)}
+                          title="Download som .txt"
+                        >
+                          <Download className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                         </Button>
                         <Button
                           variant="ghost"

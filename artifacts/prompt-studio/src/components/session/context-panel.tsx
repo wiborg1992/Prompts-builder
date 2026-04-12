@@ -35,7 +35,100 @@ import {
   X,
   Pencil,
   ExternalLink,
+  MessageCircleQuestion,
+  CheckCircle2,
 } from "lucide-react";
+
+interface ImageAnalysisState {
+  loading: boolean;
+  description?: string;
+  questions?: string[];
+  answers: string[];
+  saved: boolean;
+}
+
+async function analyzeImage(
+  imageUrl: string,
+  context?: string
+): Promise<{ description: string; questions: string[] }> {
+  const res = await fetch("/api/analyze-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageUrl: `/api/storage${imageUrl}`, context }),
+  });
+  if (!res.ok) throw new Error("Analysis failed");
+  return res.json();
+}
+
+function ImageAnalysisPanel({
+  itemId,
+  analysis,
+  onAnswerChange,
+  onSaveAnswers,
+  saving,
+}: {
+  itemId: number;
+  analysis: ImageAnalysisState;
+  onAnswerChange: (index: number, value: string) => void;
+  onSaveAnswers: () => void;
+  saving: boolean;
+}) {
+  if (analysis.loading) {
+    return (
+      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        <span>Analyserer billedet...</span>
+      </div>
+    );
+  }
+
+  if (analysis.saved) {
+    return (
+      <div className="mt-3 flex items-center gap-2 text-xs text-emerald-500">
+        <CheckCircle2 className="w-3.5 h-3.5" />
+        <span>Svar gemt som kontekst</span>
+      </div>
+    );
+  }
+
+  if (!analysis.questions || analysis.questions.length === 0) return null;
+
+  const hasAnyAnswer = analysis.answers.some((a) => a.trim().length > 0);
+
+  return (
+    <div className="mt-3 space-y-3 border-t border-border/40 pt-3">
+      <div className="flex items-center gap-1.5 text-xs text-primary font-medium">
+        <MessageCircleQuestion className="w-3.5 h-3.5" />
+        <span>Opfølgningsspørgsmål om dette billede</span>
+      </div>
+      {analysis.description && (
+        <p className="text-xs text-muted-foreground italic">{analysis.description}</p>
+      )}
+      <div className="space-y-2.5">
+        {analysis.questions.map((q, i) => (
+          <div key={i} className="space-y-1">
+            <p className="text-xs text-foreground/80">{q}</p>
+            <Textarea
+              placeholder="Dit svar..."
+              className="min-h-[56px] text-xs resize-none bg-background/80"
+              value={analysis.answers[i] ?? ""}
+              onChange={(e) => onAnswerChange(i, e.target.value)}
+            />
+          </div>
+        ))}
+      </div>
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={onSaveAnswers}
+        disabled={!hasAnyAnswer || saving}
+        className="w-full text-xs"
+      >
+        {saving ? "Gemmer..." : "Gem svar som kontekst"}
+      </Button>
+    </div>
+  );
+}
 
 const TypeIcon = ({ type }: { type: string }) => {
   switch (type) {
@@ -103,6 +196,8 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  const [imageAnalyses, setImageAnalyses] = useState<Record<number, ImageAnalysisState>>({});
+  const [savingAnswers, setSavingAnswers] = useState<Record<number, boolean>>({});
 
   const { uploadFile } = useUpload({
     onSuccess: () => {},
@@ -180,7 +275,7 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
           prev.map((u) => (u.id === uploadId ? { ...u, status: "saving" as const, progress: 100 } : u))
         );
 
-        await addItem.mutateAsync({
+        const savedItem = await addItem.mutateAsync({
           sessionId,
           data: {
             type: newType,
@@ -193,6 +288,32 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
         });
 
         setPendingUploads((prev) => prev.filter((u) => u.id !== uploadId));
+
+        if (newType === "image" && savedItem?.id && response?.objectPath) {
+          const itemId = savedItem.id;
+          setImageAnalyses((prev) => ({
+            ...prev,
+            [itemId]: { loading: true, answers: [], saved: false },
+          }));
+          try {
+            const result = await analyzeImage(response.objectPath);
+            setImageAnalyses((prev) => ({
+              ...prev,
+              [itemId]: {
+                loading: false,
+                description: result.description,
+                questions: result.questions,
+                answers: result.questions.map(() => ""),
+                saved: false,
+              },
+            }));
+          } catch {
+            setImageAnalyses((prev) => ({
+              ...prev,
+              [itemId]: { loading: false, answers: [], saved: false },
+            }));
+          }
+        }
       } catch (err: any) {
         setPendingUploads((prev) =>
           prev.map((u) =>
@@ -242,6 +363,40 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
 
   const dismissUploadError = (uploadId: string) => {
     setPendingUploads((prev) => prev.filter((u) => u.id !== uploadId));
+  };
+
+  const handleAnswerChange = (itemId: number, index: number, value: string) => {
+    setImageAnalyses((prev) => {
+      const existing = prev[itemId];
+      if (!existing) return prev;
+      const newAnswers = [...existing.answers];
+      newAnswers[index] = value;
+      return { ...prev, [itemId]: { ...existing, answers: newAnswers } };
+    });
+  };
+
+  const handleSaveAnswers = async (item: ContextItem) => {
+    const analysis = imageAnalyses[item.id];
+    if (!analysis || !analysis.questions) return;
+    setSavingAnswers((prev) => ({ ...prev, [item.id]: true }));
+    const imageRef = item.filename || item.label || "billede";
+    for (let i = 0; i < analysis.questions.length; i++) {
+      const answer = analysis.answers[i]?.trim();
+      if (!answer) continue;
+      await addItem.mutateAsync({
+        sessionId,
+        data: {
+          type: "note",
+          label: `${imageRef} — ${analysis.questions[i]}`,
+          content: answer,
+        },
+      });
+    }
+    setSavingAnswers((prev) => ({ ...prev, [item.id]: false }));
+    setImageAnalyses((prev) => ({
+      ...prev,
+      [item.id]: { ...prev[item.id], saved: true },
+    }));
   };
 
   const acceptTypes =
@@ -591,13 +746,26 @@ export function ContextPanel({ sessionId }: { sessionId: number }) {
                     </div>
 
                     {item.type === "image" && item.fileUrl && (
-                      <div className="rounded-md overflow-hidden bg-background/50 max-h-[200px]">
-                        <img
-                          src={`/api/storage${item.fileUrl}`}
-                          alt={item.filename || "uploaded image"}
-                          className="max-h-[200px] object-contain mx-auto"
-                        />
-                      </div>
+                      <>
+                        <div className="rounded-md overflow-hidden bg-background/50 max-h-[200px]">
+                          <img
+                            src={`/api/storage${item.fileUrl}`}
+                            alt={item.filename || "uploaded image"}
+                            className="max-h-[200px] object-contain mx-auto"
+                          />
+                        </div>
+                        {imageAnalyses[item.id] && (
+                          <ImageAnalysisPanel
+                            itemId={item.id}
+                            analysis={imageAnalyses[item.id]}
+                            onAnswerChange={(index, value) =>
+                              handleAnswerChange(item.id, index, value)
+                            }
+                            onSaveAnswers={() => handleSaveAnswers(item)}
+                            saving={!!savingAnswers[item.id]}
+                          />
+                        )}
+                      </>
                     )}
 
                     {item.type === "file" && item.fileUrl && (

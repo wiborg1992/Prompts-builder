@@ -7,6 +7,7 @@ import transcribeRouter from "./transcribe";
 import storageRouter from "./storage";
 import deepgramTokenRouter from "./deepgram-token";
 import transcriptsRouter from "./transcripts";
+import analyzeRouter from "./analyze";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(transcribeRouter);
 router.use(storageRouter);
 router.use(deepgramTokenRouter);
 router.use(transcriptsRouter);
+router.use(analyzeRouter);
 
 export default router;

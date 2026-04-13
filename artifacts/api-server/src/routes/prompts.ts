@@ -105,11 +105,16 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
   const latestPrompt = existingPrompts[0] ?? null;
   const nextVersion = latestPrompt ? latestPrompt.version + 1 : 1;
 
+  const previousPromptData = latestPrompt
+    ? { version: latestPrompt.version, content: latestPrompt.content }
+    : null;
+
   const result = await generateDesignPrompt(
     contextItems,
     transcriptSegments,
     instruction ?? null,
-    clarifications as Array<{ question: string; answer: string }> | null
+    clarifications as Array<{ question: string; answer: string }> | null,
+    previousPromptData
   );
 
   const [prompt] = await db

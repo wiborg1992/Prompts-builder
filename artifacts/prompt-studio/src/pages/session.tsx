@@ -12,10 +12,12 @@ import { ArrowLeft, Loader2, Mic, FolderOpen, Sparkles } from "lucide-react";
 import { RecordingWorkspace } from "@/components/session/recording-workspace";
 import { ContextPanel } from "@/components/session/context-panel";
 import { PromptPanel } from "@/components/session/prompt-panel";
+import { useState } from "react";
 
 export default function SessionWorkspace() {
   const params = useParams();
   const sessionId = Number(params.id);
+  const [activeTab, setActiveTab] = useState("record");
 
   const { data: session, isLoading: sessionLoading } = useGetSession(sessionId, {
     query: {
@@ -87,7 +89,7 @@ export default function SessionWorkspace() {
         </div>
       </header>
 
-      <Tabs defaultValue="record" className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <div className="flex-none border-b border-border bg-card/20">
           <TabsList className="h-10 bg-transparent rounded-none border-none px-4 gap-1">
             <TabsTrigger
@@ -136,7 +138,7 @@ export default function SessionWorkspace() {
         </TabsContent>
 
         <TabsContent value="prompts" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-          <PromptPanel sessionId={sessionId} />
+          <PromptPanel sessionId={sessionId} onPromptGenerated={() => setActiveTab("prompts")} />
         </TabsContent>
       </Tabs>
     </div>

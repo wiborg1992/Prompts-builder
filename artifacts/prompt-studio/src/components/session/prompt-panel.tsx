@@ -90,7 +90,7 @@ function getAutoDownloadPref(): boolean {
 
 type PanelState = "idle" | "checking" | "clarifying" | "generating";
 
-export function PromptPanel({ sessionId }: { sessionId: number }) {
+export function PromptPanel({ sessionId, onPromptGenerated }: { sessionId: number; onPromptGenerated?: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [instruction, setInstruction] = useState("");
@@ -139,6 +139,7 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
         setQuestions([]);
         setAnswers({});
         setPanelState("idle");
+        onPromptGenerated?.();
         setSelectedId(newPrompt.id);
         setEditingId(null);
 
@@ -392,6 +393,9 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
             <div className="h-64 bg-muted rounded-xl animate-pulse" />
           ) : selectedPrompt ? (
             <div className="space-y-2 animate-in fade-in slide-in-from-bottom-4">
+              {selectedPrompt.suggestedFiles && selectedPrompt.suggestedFiles.length > 0 && (
+                <SuggestedFilesBox files={selectedPrompt.suggestedFiles} />
+              )}
               <Card className="border-primary/30 shadow-lg shadow-primary/5 bg-card" data-testid="card-latest-prompt">
                 <CardHeader className="p-3 border-b border-border/50 bg-card flex flex-row items-center justify-between space-y-0">
                   <div className="flex items-center gap-2">
@@ -465,10 +469,6 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
                   )}
                 </CardContent>
               </Card>
-
-              {selectedPrompt.suggestedFiles && selectedPrompt.suggestedFiles.length > 0 && (
-                <SuggestedFilesBox files={selectedPrompt.suggestedFiles} />
-              )}
             </div>
           ) : (
             <div className="text-center py-24 px-4 border border-dashed border-border rounded-xl">

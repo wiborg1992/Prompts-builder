@@ -187,6 +187,29 @@ export interface ClarificationAnswer {
   answer: string;
 }
 
+export interface PreviousPrompt {
+  version: number;
+  content: string;
+}
+
+const CHANGE_SYSTEM_PROMPT = `You are a design change request generator for an iterative workshop flow. You will receive:
+1. The PREVIOUS PROMPT — the full design specification used to build the current prototype
+2. NEW SESSION MATERIALS — a transcript of a follow-up discussion where the team reviews the prototype and proposes improvements
+
+Your task: Generate a concise, focused CHANGE REQUEST that describes ONLY what to modify in the existing prototype.
+
+STRICT RULES:
+- DO NOT repeat design guidelines, color palettes, typography, spacing, or any specification that was already in the previous prompt
+- DO NOT restate context, background, or system instructions
+- ONLY describe the specific changes, additions, or removals requested in the new discussion
+- Write as direct instructions to a developer who already has the prototype open: "Ret X til Y", "Tilføj Z", "Fjern W"
+- Use numbered or bullet list format for the changes
+- Keep it short — typically 3–10 points
+
+After the change list, output a <suggested_files> block (same format as before) listing which uploaded files should be attached as context.
+
+Match the language of the transcript (Danish if Danish, English if English).`;
+
 const CLARIFY_SYSTEM_PROMPT = `You analyze design session materials to decide if clarifying questions are needed before generating a design prompt.
 
 Review the transcript and context items. Ask 1–3 short, specific questions ONLY when you are genuinely uncertain about something that would significantly change the output — for example:
@@ -222,7 +245,7 @@ export async function checkClarification(
     const label = item.label ? ` label="${escapeXmlAttr(item.label)}"` : "";
     const typeTag = item.type.toLowerCase();
     if ((item.type === "file" || item.type === "image") && item.fileUrl) {
-      const displayName = item.filename || item.fileUrl.split("/").pop() || "unknown";
+      const displayName = item.label || item.filename || "ukendt fil";
       sections.push(`<context_item type="${typeTag}"${label} filename="${escapeXmlAttr(displayName)}" />`);
     } else {
       sections.push(`<context_item type="${typeTag}"${label}>\n${item.content?.slice(0, 400)}\n</context_item>`);
@@ -285,7 +308,8 @@ export async function generateDesignPrompt(
   contextItems: ContextItem[],
   transcriptSegments: TranscriptSegment[],
   instruction: string | null | undefined,
-  clarifications?: ClarificationAnswer[] | null
+  clarifications?: ClarificationAnswer[] | null,
+  previousPrompt?: PreviousPrompt | null
 ): Promise<GenerateResult> {
   if (contextItems.length === 0 && transcriptSegments.length === 0) {
     throw new Error("No context or transcript available to generate a prompt from.");
@@ -314,7 +338,7 @@ export async function generateDesignPrompt(
     const typeTag = item.type.toLowerCase();
 
     if ((item.type === "file" || item.type === "image") && item.fileUrl) {
-      const displayName = item.filename || item.fileUrl.split("/").pop() || "unknown";
+      const displayName = item.label || item.filename || "ukendt fil";
       const fileMeta = `filename="${escapeXmlAttr(displayName)}"${item.mimeType ? ` mimetype="${escapeXmlAttr(item.mimeType)}"` : ""}`;
       const extracted = extractedContents[i];
       let body = "";
@@ -340,7 +364,21 @@ export async function generateDesignPrompt(
           .join("\n\n")}\n</clarifications>`
       : "";
 
-  const userMessage = instruction
+  const isChangeMode = !!previousPrompt;
+
+  const userMessage = isChangeMode
+    ? [
+        `<previous_prompt version="${previousPrompt!.version}">`,
+        previousPrompt!.content,
+        `</previous_prompt>`,
+        ``,
+        `<new_session_materials>`,
+        contextBlock,
+        `</new_session_materials>${clarificationsBlock}`,
+        instruction ? `\n<user_instruction>\n${instruction}\n</user_instruction>` : "",
+        `\nGenerate a concise change request based on the new session materials.`,
+      ].join("\n")
+    : instruction
     ? `<session_materials>\n${contextBlock}\n</session_materials>${clarificationsBlock}\n\n<user_instruction>\n${instruction}\n</user_instruction>\n\nCompose a structured design prompt based on these materials.`
     : `<session_materials>\n${contextBlock}\n</session_materials>${clarificationsBlock}\n\nCompose a structured design prompt based on these materials.`;
 
@@ -348,7 +386,7 @@ export async function generateDesignPrompt(
     model: "gpt-5.2",
     max_completion_tokens: 4096,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: isChangeMode ? CHANGE_SYSTEM_PROMPT : SYSTEM_PROMPT },
       { role: "user", content: userMessage },
     ],
   });

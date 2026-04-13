@@ -159,6 +159,14 @@ export const ListPromptsResponseItem = zod.object({
   content: zod.string(),
   instruction: zod.string().nullish(),
   version: zod.number(),
+  suggestedFiles: zod
+    .array(
+      zod.object({
+        filename: zod.string(),
+        reason: zod.string(),
+      }),
+    )
+    .nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -196,6 +204,14 @@ export const UpdatePromptResponse = zod.object({
   content: zod.string(),
   instruction: zod.string().nullish(),
   version: zod.number(),
+  suggestedFiles: zod
+    .array(
+      zod.object({
+        filename: zod.string(),
+        reason: zod.string(),
+      }),
+    )
+    .nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

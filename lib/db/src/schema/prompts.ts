@@ -1,7 +1,13 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { sessionsTable } from "./sessions";
+
+export const SuggestedFileSchema = z.object({
+  filename: z.string(),
+  reason: z.string(),
+});
+export type SuggestedFile = z.infer<typeof SuggestedFileSchema>;
 
 export const generatedPromptsTable = pgTable("generated_prompts", {
   id: serial("id").primaryKey(),
@@ -9,6 +15,7 @@ export const generatedPromptsTable = pgTable("generated_prompts", {
   content: text("content").notNull(),
   instruction: text("instruction"),
   version: integer("version").notNull().default(1),
+  suggestedFiles: jsonb("suggested_files").$type<SuggestedFile[]>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

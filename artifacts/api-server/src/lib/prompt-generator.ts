@@ -37,34 +37,6 @@ Before doing anything else, scan ALL context items — files, images, notes, req
 0.4 If no design guidelines are found in any context item, write: "No design guidelines detected in provided context."
 
 ===========================
-STEP 0.5 — INCREMENTAL PROMPT REVIEW (RUNS ONLY WHEN PREVIOUS PROMPT IS PROVIDED)
-===========================
-
-When a <previous_prompt> block is present in the input, this session is in INCREMENTAL MODE. You are refining and extending an existing prompt, not starting from scratch.
-
-0.5.1 Read the previous prompt carefully and identify:
-  - What requirements, design constraints, and goals were already established
-  - The structure and framing of the previous prompt
-  - The version number and any instruction that guided the previous generation
-
-0.5.2 Identify what is NEW since the previous prompt:
-  - Any new transcript content (dialogue added after the previous generation)
-  - Any new or modified context items (new files, notes, requirements, or image annotations)
-  - The user's explicit instruction for this generation (if provided)
-
-0.5.3 Build upon — do not replace:
-  - Preserve ALL established requirements from the previous prompt unless new information explicitly contradicts them
-  - Extend sections that have new input; do not truncate or simplify existing content
-  - If the user instruction calls for a different angle or deeper focus, ADD that layer rather than discarding what was there
-  - The DESIGN GUIDELINES section must always carry forward the full accumulated set of constraints, supplemented with any new ones
-
-0.5.4 Signal the evolution clearly in the PRIORITIZATION SUMMARY:
-  - State concisely what changed from the previous version (e.g. "Refined:", "Extended:", "Added:", "Resolved conflict:")
-  - If nothing substantively new was provided, say so and explain what you deepened or tightened
-
-0.5.5 If NO previous prompt is present, skip this step entirely and proceed to STEP 1.
-
-===========================
 STEP 1 — CONVERSATION UNDERSTANDING & PRIORITIZATION
 ===========================
 
@@ -98,10 +70,10 @@ When context items include files, images, notes, requirements, or pasted content
 2.3 If multiple design systems or brand guidelines are present, state which one is authoritative for this task.
 
 ===========================
-STEP 3 — PROMPT STRUCTURE (6 SECTIONS)
+STEP 3 — PROMPT STRUCTURE (5 SECTIONS)
 ===========================
 
-You MUST structure the output into exactly SIX labeled sections in this order. Use the exact headers shown. All six sections are always present.
+You MUST structure the output into exactly FIVE labeled sections in this order. Use the exact headers shown. All five sections are always present.
 
 <output_format>
 --- DESIGN GUIDELINES ---
@@ -119,10 +91,27 @@ Role definition for the downstream model, e.g. "You are a senior product designe
 
 --- OUTPUT CONSTRAINTS ---
 Exact structure the downstream model should follow: required sections, format (markdown/JSON/tables), length constraints. Include a reminder that all design decisions must reference the brand constraints from DESIGN GUIDELINES. If output must be machine-parsed, define a precise schema.
-
---- VISUALIZATION FILES ---
-List which specific context files the user should upload directly to the visualization engine when using this prompt. For each file, state the filename and a one-sentence reason why the visualization engine needs it (e.g. "brandguide.pdf — contains the color palette and typography the visualization must apply"). Only list files that add direct value to the visual output. Do not comment on missing files.
 </output_format>
+
+===========================
+STEP 3.5 — SUGGESTED CONTEXT FILES (MACHINE-READABLE, NOT PART OF THE PROMPT)
+===========================
+
+After the five sections above, output a machine-readable block identifying which uploaded files the user should attach as context when pasting the prompt into their vibe-coding or AI design tool. This block is NOT part of the prompt — it is metadata for the Prompt Studio UI.
+
+Rules:
+- Only list files that were actually provided as context items (files or images with a filename)
+- For each file, write a one-sentence reason why the downstream AI tool needs it
+- If no files are relevant, output an empty array
+- Do NOT reference files that were not uploaded; do NOT invent filenames
+
+Output this block immediately after the five prompt sections, in this exact format:
+<suggested_files>
+[
+  {"filename": "brandguide.pdf", "reason": "Contains the color palette and typography rules the AI must apply."},
+  {"filename": "wireframe.png", "reason": "Provides the layout structure the AI should use as a starting point."}
+]
+</suggested_files>
 
 ===========================
 STEP 4 — QUALITY PRINCIPLES
@@ -165,7 +154,7 @@ Response-level (anticipate):
 
 Also verify: Are all design guidelines from Step 0 represented in the DESIGN GUIDELINES section with exact values?
 
-Refine the prompt if any axis scores poorly. Do not include the evaluation in the output — only the final refined prompt.
+Refine the prompt if any axis scores poorly. Do not include the evaluation in the output — only the final refined prompt and the <suggested_files> block.
 
 ===========================
 LANGUAGE
@@ -177,24 +166,53 @@ Match the dominant language of the conversation transcript. If the transcript is
 OUTPUT RULES
 ===========================
 
-- Output ONLY the structured prompt (all six sections).
+- Output the five-section structured prompt followed immediately by the <suggested_files> block.
 - Do NOT include meta-commentary, preamble, or explanations outside the prompt structure.
 - Do NOT invent domain knowledge, product details, or design decisions not present in the provided context.
 - If the context is very sparse, produce a focused but coherent prompt reflecting exactly what was provided.
 - The DESIGN GUIDELINES section is always the first section and always contains extracted values or the explicit "no guidelines detected" statement.`;
 
-export interface PreviousPrompt {
-  version: number;
+export interface SuggestedFile {
+  filename: string;
+  reason: string;
+}
+
+export interface GenerateResult {
   content: string;
-  instruction?: string | null;
+  suggestedFiles: SuggestedFile[];
+}
+
+function parseSuggestedFiles(raw: string): { content: string; suggestedFiles: SuggestedFile[] } {
+  const match = raw.match(/<suggested_files>\s*([\s\S]*?)\s*<\/suggested_files>/);
+  if (!match) {
+    return { content: raw.trim(), suggestedFiles: [] };
+  }
+
+  const content = raw.slice(0, raw.indexOf("<suggested_files>")).trim();
+  let suggestedFiles: SuggestedFile[] = [];
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (Array.isArray(parsed)) {
+      suggestedFiles = parsed.filter(
+        (f): f is SuggestedFile =>
+          typeof f === "object" &&
+          f !== null &&
+          typeof f.filename === "string" &&
+          typeof f.reason === "string"
+      );
+    }
+  } catch {
+    // If JSON parse fails, return empty array
+  }
+
+  return { content, suggestedFiles };
 }
 
 export async function generateDesignPrompt(
   contextItems: ContextItem[],
   transcriptSegments: TranscriptSegment[],
-  instruction: string | null | undefined,
-  previousPrompt?: PreviousPrompt | null
-): Promise<string> {
+  instruction: string | null | undefined
+): Promise<GenerateResult> {
   if (contextItems.length === 0 && transcriptSegments.length === 0) {
     throw new Error("No context or transcript available to generate a prompt from.");
   }
@@ -240,17 +258,9 @@ export async function generateDesignPrompt(
 
   const contextBlock = sections.join("\n\n");
 
-  const previousPromptBlock = previousPrompt
-    ? `\n\n<previous_prompt version="${previousPrompt.version}"${previousPrompt.instruction ? ` instruction="${escapeXmlAttr(previousPrompt.instruction)}"` : ""}>\n${previousPrompt.content}\n</previous_prompt>`
-    : "";
-
-  const modeNote = previousPrompt
-    ? `\n\n<generation_mode>INCREMENTAL — build upon and extend the previous prompt (v${previousPrompt.version}). Do NOT start from scratch.</generation_mode>`
-    : "";
-
   const userMessage = instruction
-    ? `<session_materials>\n${contextBlock}\n</session_materials>${previousPromptBlock}${modeNote}\n\n<user_instruction>\n${instruction}\n</user_instruction>\n\nCompose a structured design prompt based on these materials.`
-    : `<session_materials>\n${contextBlock}\n</session_materials>${previousPromptBlock}${modeNote}\n\nCompose a structured design prompt based on these materials.`;
+    ? `<session_materials>\n${contextBlock}\n</session_materials>\n\n<user_instruction>\n${instruction}\n</user_instruction>\n\nCompose a structured design prompt based on these materials.`
+    : `<session_materials>\n${contextBlock}\n</session_materials>\n\nCompose a structured design prompt based on these materials.`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",
@@ -261,12 +271,12 @@ export async function generateDesignPrompt(
     ],
   });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) {
+  const rawContent = response.choices[0]?.message?.content;
+  if (!rawContent) {
     throw new Error("Failed to generate prompt: empty response from AI.");
   }
 
-  return content.trim();
+  return parseSuggestedFiles(rawContent.trim());
 }
 
 export function wrapPromptExport(content: string) {

@@ -5,6 +5,7 @@
  * Context-driven design prompt generation API
  * OpenAPI spec version: 0.1.0
  */
+import type { SuggestedFile } from "./suggestedFile";
 
 export interface GeneratedPrompt {
   id: number;
@@ -13,6 +14,8 @@ export interface GeneratedPrompt {
   /** @nullable */
   instruction?: string | null;
   version: number;
+  /** @nullable */
+  suggestedFiles?: SuggestedFile[] | null;
   createdAt: Date;
   updatedAt: Date;
 }

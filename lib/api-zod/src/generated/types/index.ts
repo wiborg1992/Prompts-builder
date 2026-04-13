@@ -20,6 +20,7 @@ export * from "./healthStatus";
 export * from "./session";
 export * from "./sessionSummary";
 export * from "./sessionSummaryContextByType";
+export * from "./suggestedFile";
 export * from "./transcribeAudioBody";
 export * from "./transcribeAudioBodyProvider";
 export * from "./transcriptionResult";

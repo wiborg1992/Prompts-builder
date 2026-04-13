@@ -70,19 +70,16 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
   const latestPrompt = existingPrompts[0] ?? null;
   const nextVersion = latestPrompt ? latestPrompt.version + 1 : 1;
 
-  const previousPrompt = latestPrompt
-    ? { version: latestPrompt.version, content: latestPrompt.content, instruction: latestPrompt.instruction }
-    : null;
-
-  const content = await generateDesignPrompt(contextItems, transcriptSegments, instruction ?? null, previousPrompt);
+  const result = await generateDesignPrompt(contextItems, transcriptSegments, instruction ?? null);
 
   const [prompt] = await db
     .insert(generatedPromptsTable)
     .values({
       sessionId: params.data.sessionId,
-      content,
+      content: result.content,
       instruction: instruction ?? null,
       version: nextVersion,
+      suggestedFiles: result.suggestedFiles.length > 0 ? result.suggestedFiles : null,
     })
     .returning();
 

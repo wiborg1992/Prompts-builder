@@ -87,6 +87,11 @@ export interface UpdateContextItemBody {
   content?: string;
 }
 
+export interface SuggestedFile {
+  filename: string;
+  reason: string;
+}
+
 export interface GeneratedPrompt {
   id: number;
   sessionId: number;
@@ -94,6 +99,8 @@ export interface GeneratedPrompt {
   /** @nullable */
   instruction?: string | null;
   version: number;
+  /** @nullable */
+  suggestedFiles?: SuggestedFile[] | null;
   createdAt: string;
   updatedAt: string;
 }

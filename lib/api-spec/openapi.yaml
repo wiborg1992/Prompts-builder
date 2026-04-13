@@ -650,6 +650,17 @@ components:
         content:
           type: string
 
+    SuggestedFile:
+      type: object
+      properties:
+        filename:
+          type: string
+        reason:
+          type: string
+      required:
+        - filename
+        - reason
+
     GeneratedPrompt:
       type: object
       properties:
@@ -663,6 +674,10 @@ components:
           type: ["string", "null"]
         version:
           type: integer
+        suggestedFiles:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/SuggestedFile"
         createdAt:
           type: string
           format: date-time

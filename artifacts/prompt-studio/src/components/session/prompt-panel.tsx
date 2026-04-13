@@ -7,14 +7,15 @@ import {
   useUpdatePrompt,
   useDeletePrompt,
   getGetSessionSummaryQueryKey,
-  GeneratedPrompt
+  GeneratedPrompt,
+  SuggestedFile,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Sparkles, Edit2, Check, X, Trash2, Copy, GitMerge, Download } from "lucide-react";
+import { Sparkles, Edit2, Check, X, Trash2, Copy, Download, Paperclip, Info } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,39 @@ function PromptMarkdown({ content }: { content: string }) {
   );
 }
 
+function SuggestedFilesBox({ files }: { files: SuggestedFile[] }) {
+  if (!files || files.length === 0) return null;
+
+  return (
+    <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 shrink-0 rounded-md bg-amber-500/15 p-1.5">
+          <Paperclip className="w-3.5 h-3.5 text-amber-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-amber-400 mb-1 flex items-center gap-1.5">
+            Vedhæft disse filer i dit AI-kodningsværktøj
+            <Info className="w-3 h-3 opacity-70" />
+          </p>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            Når du indsætter prompten i Cursor, Copilot eller et andet AI-værktøj, bør du sende disse filer med som kontekst:
+          </p>
+          <ul className="space-y-2">
+            {files.map((f, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0 font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-foreground truncate max-w-[160px]" title={f.filename}>
+                  {f.filename}
+                </span>
+                <span className="text-xs text-muted-foreground leading-relaxed">{f.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getAutoDownloadPref(): boolean {
   if (typeof window === "undefined") return true;
   const stored = window.localStorage.getItem("prompt-studio-auto-download");
@@ -71,9 +105,6 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
   const sortedPrompts = prompts ? [...prompts].sort((a, b) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   ) : [];
-
-  const latestPrompt = sortedPrompts[0] ?? null;
-  const isIncremental = sortedPrompts.length > 0;
 
   const generatePrompt = useGeneratePrompt({
     mutation: {
@@ -144,8 +175,8 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
     toast({
-      title: "Copied to clipboard",
-      description: "Prompt is ready to use.",
+      title: "Kopieret til udklipsholder",
+      description: "Prompten er klar til brug.",
     });
   };
 
@@ -171,23 +202,11 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
             <Sparkles className="w-4 h-4 text-primary" />
             Prompt Output
           </h2>
-          {isIncremental && latestPrompt && (
-            <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full">
-              <GitMerge className="w-3 h-3" />
-              <span>Bygger på v{latestPrompt.version}</span>
-            </div>
-          )}
         </div>
-
-        {isIncremental && (
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Næste generation bygger videre på <span className="text-foreground font-medium">v{latestPrompt?.version}</span> — eksisterende krav og retningslinjer bevares og udvides med ny kontekst.
-          </p>
-        )}
 
         <div className="flex gap-2">
           <Input
-            placeholder={isIncremental ? `Hvad skal v${(latestPrompt?.version ?? 0) + 1} fokusere på? (valgfrit)` : "Valgfri instruktion (f.eks. 'Fokuser på tilgængelighed')"}
+            placeholder="Valgfri instruktion (f.eks. 'Fokuser på tilgængelighed')"
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
             className="flex-1"
@@ -208,11 +227,9 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
             {generatePrompt.isPending ? (
               <span className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 animate-pulse" />
-                {isIncremental ? "Opdaterer..." : "Genererer..."}
+                Genererer...
               </span>
-            ) : (
-              isIncremental ? `Generer v${(latestPrompt?.version ?? 0) + 1}` : "Generer"
-            )}
+            ) : "Generer"}
           </Button>
         </div>
 
@@ -266,7 +283,7 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
                       </span>
                     ) : (
                       <span className="text-xs text-muted-foreground">
-                        {selectedPrompt.version === 1 ? "Første generation" : `Inkrementel opdatering`}
+                        {format(new Date(selectedPrompt.createdAt), 'MMM d, HH:mm')}
                       </span>
                     )}
                   </div>
@@ -327,6 +344,10 @@ export function PromptPanel({ sessionId }: { sessionId: number }) {
                   )}
                 </CardContent>
               </Card>
+
+              {selectedPrompt.suggestedFiles && selectedPrompt.suggestedFiles.length > 0 && (
+                <SuggestedFilesBox files={selectedPrompt.suggestedFiles} />
+              )}
             </div>
           ) : (
             <div className="text-center py-24 px-4 border border-dashed border-border rounded-xl">

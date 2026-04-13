@@ -12,12 +12,14 @@ import { ArrowLeft, Loader2, Mic, FolderOpen, Sparkles } from "lucide-react";
 import { RecordingWorkspace } from "@/components/session/recording-workspace";
 import { ContextPanel } from "@/components/session/context-panel";
 import { PromptPanel } from "@/components/session/prompt-panel";
+import { GenerateBar } from "@/components/session/generate-bar";
 import { useState } from "react";
 
 export default function SessionWorkspace() {
   const params = useParams();
   const sessionId = Number(params.id);
   const [activeTab, setActiveTab] = useState("record");
+  const [latestPromptId, setLatestPromptId] = useState<number | null>(null);
 
   const { data: session, isLoading: sessionLoading } = useGetSession(sessionId, {
     query: {
@@ -32,6 +34,11 @@ export default function SessionWorkspace() {
       queryKey: getGetSessionSummaryQueryKey(sessionId),
     },
   });
+
+  const handlePromptGenerated = (promptId: number) => {
+    setLatestPromptId(promptId);
+    setActiveTab("prompts");
+  };
 
   if (sessionLoading) {
     return (
@@ -138,9 +145,11 @@ export default function SessionWorkspace() {
         </TabsContent>
 
         <TabsContent value="prompts" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
-          <PromptPanel sessionId={sessionId} onPromptGenerated={() => setActiveTab("prompts")} />
+          <PromptPanel sessionId={sessionId} forcedSelectedId={latestPromptId} />
         </TabsContent>
       </Tabs>
+
+      <GenerateBar sessionId={sessionId} onSuccess={handlePromptGenerated} />
     </div>
   );
 }

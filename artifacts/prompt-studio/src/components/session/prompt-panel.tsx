@@ -3,8 +3,6 @@ import { marked } from "marked";
 import {
   useListPrompts,
   getListPromptsQueryKey,
-  useGeneratePrompt,
-  useClarifyPrompt,
   useUpdatePrompt,
   useDeletePrompt,
   getGetSessionSummaryQueryKey,
@@ -16,10 +14,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Sparkles, Edit2, Check, X, Trash2, Copy, Download, Paperclip, Info, HelpCircle, ChevronRight } from "lucide-react";
+import { Sparkles, Edit2, Check, X, Trash2, Copy, Download, Paperclip, Info } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -53,7 +50,7 @@ function SuggestedFilesBox({ files }: { files: SuggestedFile[] }) {
   if (!files || files.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
       <div className="flex items-start gap-2.5">
         <div className="mt-0.5 shrink-0 rounded-md bg-amber-500/15 p-1.5">
           <Paperclip className="w-3.5 h-3.5 text-amber-500" />
@@ -82,122 +79,38 @@ function SuggestedFilesBox({ files }: { files: SuggestedFile[] }) {
   );
 }
 
-function getAutoDownloadPref(): boolean {
-  if (typeof window === "undefined") return true;
-  const stored = window.localStorage.getItem("prompt-studio-auto-download");
-  return stored ? stored === "true" : true;
+interface PromptPanelProps {
+  sessionId: number;
+  forcedSelectedId?: number | null;
 }
 
-type PanelState = "idle" | "checking" | "clarifying" | "generating";
-
-export function PromptPanel({ sessionId, onPromptGenerated }: { sessionId: number; onPromptGenerated?: () => void }) {
+export function PromptPanel({ sessionId, forcedSelectedId }: PromptPanelProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [instruction, setInstruction] = useState("");
-  const [panelState, setPanelState] = useState<PanelState>("idle");
-  const [questions, setQuestions] = useState<string[]>([]);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
+  const effectiveSelectedId = forcedSelectedId ?? selectedId;
+
   const { data: prompts, isLoading } = useListPrompts(sessionId, {
     query: {
       enabled: !!sessionId,
-      queryKey: getListPromptsQueryKey(sessionId)
-    }
+      queryKey: getListPromptsQueryKey(sessionId),
+    },
   });
 
   const sortedPrompts = prompts ? [...prompts].sort((a, b) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   ) : [];
 
-  const clarifyPrompt = useClarifyPrompt({
-    mutation: {
-      onSuccess: (data) => {
-        if (data.questions && data.questions.length > 0) {
-          setQuestions(data.questions);
-          setAnswers({});
-          setPanelState("clarifying");
-        } else {
-          doGenerate([]);
-        }
-      },
-      onError: () => {
-        setPanelState("idle");
-        toast({ title: "Noget gik galt", description: "Kunne ikke tjekke for afklaringsspørgsmål.", variant: "destructive" });
-      }
-    }
-  });
-
-  const generatePrompt = useGeneratePrompt({
-    mutation: {
-      onSuccess: (newPrompt) => {
-        queryClient.invalidateQueries({ queryKey: getListPromptsQueryKey(sessionId) });
-        queryClient.invalidateQueries({ queryKey: getGetSessionSummaryQueryKey(sessionId) });
-        setInstruction("");
-        setQuestions([]);
-        setAnswers({});
-        setPanelState("idle");
-        onPromptGenerated?.();
-        setSelectedId(newPrompt.id);
-        setEditingId(null);
-
-        if (getAutoDownloadPref()) {
-          const url = `/api/sessions/${sessionId}/prompts/${newPrompt.id}/export`;
-          const a = document.createElement("a");
-          a.style.display = "none";
-          a.href = url;
-          a.download = "";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        }
-      },
-      onError: () => {
-        setPanelState("idle");
-        toast({ title: "Generering fejlede", description: "Prøv igen om et øjeblik.", variant: "destructive" });
-      }
-    }
-  });
-
-  const doGenerate = (clarifications: Array<{ question: string; answer: string }>) => {
-    setPanelState("generating");
-    generatePrompt.mutate({
-      sessionId,
-      data: {
-        instruction: instruction.trim() || undefined,
-        clarifications: clarifications.length > 0 ? clarifications : undefined,
-      }
-    });
-  };
-
-  const handleGenerate = () => {
-    if (panelState === "clarifying") {
-      const clarifications = questions
-        .map((q, i) => ({ question: q, answer: answers[i] ?? "" }))
-        .filter((c) => c.answer.trim() !== "");
-      doGenerate(clarifications);
-      return;
-    }
-    setPanelState("checking");
-    clarifyPrompt.mutate({
-      sessionId,
-      data: { instruction: instruction.trim() || undefined }
-    });
-  };
-
-  const handleSkipClarification = () => {
-    doGenerate([]);
-  };
-
   const updatePrompt = useUpdatePrompt({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListPromptsQueryKey(sessionId) });
         setEditingId(null);
-      }
-    }
+      },
+    },
   });
 
   const deletePrompt = useDeletePrompt({
@@ -207,8 +120,8 @@ export function PromptPanel({ sessionId, onPromptGenerated }: { sessionId: numbe
         queryClient.invalidateQueries({ queryKey: getGetSessionSummaryQueryKey(sessionId) });
         setSelectedId(null);
         setEditingId(null);
-      }
-    }
+      },
+    },
   });
 
   const handleEdit = (prompt: GeneratedPrompt) => {
@@ -218,19 +131,12 @@ export function PromptPanel({ sessionId, onPromptGenerated }: { sessionId: numbe
 
   const handleSaveEdit = (id: number) => {
     if (!editContent.trim()) return;
-    updatePrompt.mutate({
-      sessionId,
-      id,
-      data: { content: editContent }
-    });
+    updatePrompt.mutate({ sessionId, id, data: { content: editContent } });
   };
 
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
-    toast({
-      title: "Kopieret til udklipsholder",
-      description: "Prompten er klar til brug.",
-    });
+    toast({ title: "Kopieret til udklipsholder", description: "Prompten er klar til brug." });
   };
 
   const handleDownload = (prompt: GeneratedPrompt) => {
@@ -244,120 +150,15 @@ export function PromptPanel({ sessionId, onPromptGenerated }: { sessionId: numbe
     document.body.removeChild(a);
   };
 
-  const effectiveSelectedId = selectedId ?? sortedPrompts[0]?.id ?? null;
-  const selectedPrompt = sortedPrompts.find(p => p.id === effectiveSelectedId) ?? sortedPrompts[0] ?? null;
-
-  const isWorking = panelState === "checking" || panelState === "generating";
+  const resolvedId = effectiveSelectedId ?? sortedPrompts[0]?.id ?? null;
+  const selectedPrompt = sortedPrompts.find((p) => p.id === resolvedId) ?? sortedPrompts[0] ?? null;
 
   return (
     <div className="flex flex-col h-full bg-muted/20">
-      <div className="flex-none p-4 border-b border-border bg-background flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2" data-testid="heading-prompt-panel">
-            <Sparkles className="w-4 h-4 text-primary" />
-            Prompt Output
-          </h2>
-        </div>
-
-        {panelState === "clarifying" ? (
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
-            <div className="flex items-start gap-2">
-              <HelpCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <div>
-                <p className="text-xs font-semibold text-primary mb-0.5">Et par afklarende spørgsmål</p>
-                <p className="text-xs text-muted-foreground">
-                  Besvar dem for et mere præcist resultat — eller spring over og generer nu.
-                </p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {questions.map((q, i) => (
-                <div key={i} className="space-y-1.5">
-                  <label className="text-xs text-foreground font-medium">{q}</label>
-                  <Input
-                    placeholder="Dit svar (valgfrit)"
-                    value={answers[i] ?? ""}
-                    onChange={(e) => setAnswers((prev) => ({ ...prev, [i]: e.target.value }))}
-                    className="text-sm"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleGenerate();
-                      }
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2 pt-1">
-              <Button
-                onClick={handleGenerate}
-                disabled={isWorking}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1"
-                data-testid="button-generate-prompt"
-              >
-                {isWorking ? (
-                  <span className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 animate-pulse" />
-                    Genererer...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5">
-                    Generer
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </span>
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={handleSkipClarification}
-                disabled={isWorking}
-                className="text-muted-foreground text-sm"
-              >
-                Spring over
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <Input
-              placeholder="Valgfri instruktion (f.eks. 'Fokuser på tilgængelighed')"
-              value={instruction}
-              onChange={(e) => setInstruction(e.target.value)}
-              className="flex-1"
-              data-testid="input-prompt-instruction"
-              disabled={isWorking}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleGenerate();
-                }
-              }}
-            />
-            <Button
-              onClick={handleGenerate}
-              disabled={isWorking}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
-              data-testid="button-generate-prompt"
-            >
-              {panelState === "checking" ? (
-                <span className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 animate-pulse" />
-                  Tjekker...
-                </span>
-              ) : panelState === "generating" ? (
-                <span className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 animate-pulse" />
-                  Genererer...
-                </span>
-              ) : "Generer"}
-            </Button>
-          </div>
-        )}
-
-        {sortedPrompts.length > 0 && (
+      {sortedPrompts.length > 0 && (
+        <div className="flex-none p-4 border-b border-border bg-background">
           <Select
-            value={String(effectiveSelectedId)}
+            value={String(resolvedId)}
             onValueChange={(val) => {
               setSelectedId(Number(val));
               setEditingId(null);
@@ -372,7 +173,7 @@ export function PromptPanel({ sessionId, onPromptGenerated }: { sessionId: numbe
                   <span className="flex items-center gap-2">
                     <span className="font-mono text-xs text-muted-foreground">v{prompt.version}</span>
                     <span className="text-muted-foreground">—</span>
-                    <span>{format(new Date(prompt.createdAt), 'MMM d, HH:mm')}</span>
+                    <span>{format(new Date(prompt.createdAt), "MMM d, HH:mm")}</span>
                     {index === 0 && (
                       <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">Seneste</span>
                     )}
@@ -384,8 +185,8 @@ export function PromptPanel({ sessionId, onPromptGenerated }: { sessionId: numbe
               ))}
             </SelectContent>
           </Select>
-        )}
-      </div>
+        </div>
+      )}
 
       <ScrollArea className="flex-1 p-4 lg:p-6">
         <div className="max-w-3xl mx-auto">
@@ -408,7 +209,7 @@ export function PromptPanel({ sessionId, onPromptGenerated }: { sessionId: numbe
                       </span>
                     ) : (
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(selectedPrompt.createdAt), 'MMM d, HH:mm')}
+                        {format(new Date(selectedPrompt.createdAt), "MMM d, HH:mm")}
                       </span>
                     )}
                   </div>
@@ -474,7 +275,9 @@ export function PromptPanel({ sessionId, onPromptGenerated }: { sessionId: numbe
             <div className="text-center py-24 px-4 border border-dashed border-border rounded-xl">
               <Sparkles className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
               <p className="text-muted-foreground text-sm">Ingen prompts genereret endnu.</p>
-              <p className="text-muted-foreground text-xs mt-1">Tilføj kontekst og klik på Generate for at komponere en prompt.</p>
+              <p className="text-muted-foreground text-xs mt-1">
+                Tilføj kontekst og klik på <strong>Generer</strong> nedenfor for at komponere en prompt.
+              </p>
             </div>
           )}
         </div>

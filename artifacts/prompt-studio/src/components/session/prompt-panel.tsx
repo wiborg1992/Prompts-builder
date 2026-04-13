@@ -131,7 +131,7 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
       },
       onError: () => {
         setPanelState("idle");
-        toast({ title: "Noget gik galt", description: "Kunne ikke tjekke for afklaringsspørgsmål.", variant: "destructive" });
+        toast({ title: "Something went wrong", description: "Could not check for clarifying questions.", variant: "destructive" });
       },
     },
   });
@@ -162,7 +162,7 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
       },
       onError: () => {
         setPanelState("idle");
-        toast({ title: "Generering fejlede", description: "Prøv igen om et øjeblik.", variant: "destructive" });
+        toast({ title: "Generation failed", description: "Please try again in a moment.", variant: "destructive" });
       },
     },
   });
@@ -291,11 +291,11 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
                 {isWorking ? (
                   <span className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 animate-pulse" />
-                    Genererer...
+                    Generating...
                   </span>
                 ) : (
                   <span className="flex items-center gap-1.5">
-                    Generer
+                    Generate
                     <ChevronRight className="w-3.5 h-3.5" />
                   </span>
                 )}

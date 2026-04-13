@@ -73,9 +73,14 @@ When context items include files, images, notes, requirements, or pasted content
 STEP 3 — PROMPT STRUCTURE (5 SECTIONS)
 ===========================
 
-You MUST structure the output into exactly FIVE labeled sections in this order. Use the exact headers shown. All five sections are always present.
+You MUST structure the output with a mandatory TASK DEFINITION preamble followed by exactly FIVE labeled sections. Use the exact headers shown. All parts are always present.
 
 <output_format>
+--- TASK DEFINITION ---
+This MUST be the very first element of the prompt. It contains two things:
+1. A clear, direct statement of what the downstream AI should produce — infer the artifact type from the materials (e.g. "Build a clickable UI prototype for a mobile onboarding flow", "Create a user journey map for a customer purchasing insurance online", "Design a service blueprint for an internal HR portal", "Generate a set of wireframes for a data dashboard"). Be specific about the artifact.
+2. An instruction for the downstream AI to orient itself in established best practices for that specific deliverable type before starting — e.g. "Before starting, review and apply best practices for [relevant domain]: information architecture, visual hierarchy, accessibility standards, interaction patterns, and any domain-specific conventions."
+
 --- DESIGN GUIDELINES ---
 List ALL extracted brand and design constraints as mandatory requirements. Include exact values: HEX codes, font names, token names, spacing values. Group by category (Colors, Typography, Spacing, Tokens, Components, Accessibility, Other). If no guidelines were found, write: "No design guidelines detected in provided context."
 This section is ALWAYS present. The downstream model MUST treat every value listed here as a non-negotiable constraint.
@@ -160,11 +165,11 @@ Refine the prompt if any axis scores poorly. Do not include the evaluation in th
 LANGUAGE
 ===========================
 
-Write the entire prompt in the language of the MEETING TRANSCRIPT — not the language of any uploaded files, notes, or context items. Those may be in any language, and that does NOT affect the output language.
-- If the transcript is in English → write the prompt in English.
-- If the transcript is in Danish → write the prompt in Danish.
-- If the transcript is mixed → use the dominant language of the spoken conversation.
-- If there is no transcript (only context items) → default to English.
+Write ALL prompts in English by default — regardless of the language of the transcript, notes, files, or any other input.
+
+The only exception: if the user's instruction explicitly requests a different language (e.g. "write this in Danish", "skriv på dansk"), use that language instead.
+
+Never infer language from the transcript or context items alone.
 
 ===========================
 OUTPUT RULES
@@ -206,7 +211,7 @@ Rules:
 - Follow the same 5-section structure: DESIGN GUIDELINES, PRIORITIZATION SUMMARY, INPUT CONTEXT, SYSTEM INSTRUCTIONS, OUTPUT CONSTRAINTS
 - After the five sections, output the <suggested_files> block in the same format as before
 
-Write in the language of the previous prompt or the instruction — whichever is more specific.`;
+Write in English by default. Only use another language if the refinement instruction explicitly requests it.`;
 
 const CHANGE_SYSTEM_PROMPT = `You are a design change request generator for an iterative workshop flow. You will receive:
 1. The PREVIOUS PROMPT — the full design specification used to build the current prototype
@@ -224,7 +229,7 @@ STRICT RULES:
 
 After the change list, output a <suggested_files> block (same format as before) listing which uploaded files should be attached as context.
 
-Write in the language of the NEW MEETING TRANSCRIPT only — not the language of any uploaded files or context items. If the new transcript is in English, write in English. If Danish, write in Danish. Default to English if there is no transcript.`;
+Write in English by default. Only use another language if the new session materials contain an explicit instruction requesting it.`;
 
 const CLARIFY_SYSTEM_PROMPT = `You analyze design session materials to decide if clarifying questions are needed before generating a design prompt.
 

@@ -160,7 +160,11 @@ Refine the prompt if any axis scores poorly. Do not include the evaluation in th
 LANGUAGE
 ===========================
 
-Match the dominant language of the conversation transcript. If the transcript is in Danish, write the prompt in Danish. If in English, write in English. If mixed, default to English unless instructed otherwise.
+Write the entire prompt in the language of the MEETING TRANSCRIPT — not the language of any uploaded files, notes, or context items. Those may be in any language, and that does NOT affect the output language.
+- If the transcript is in English → write the prompt in English.
+- If the transcript is in Danish → write the prompt in Danish.
+- If the transcript is mixed → use the dominant language of the spoken conversation.
+- If there is no transcript (only context items) → default to English.
 
 ===========================
 OUTPUT RULES
@@ -208,7 +212,7 @@ STRICT RULES:
 
 After the change list, output a <suggested_files> block (same format as before) listing which uploaded files should be attached as context.
 
-Match the language of the transcript (Danish if Danish, English if English).`;
+Write in the language of the NEW MEETING TRANSCRIPT only — not the language of any uploaded files or context items. If the new transcript is in English, write in English. If Danish, write in Danish. Default to English if there is no transcript.`;
 
 const CLARIFY_SYSTEM_PROMPT = `You analyze design session materials to decide if clarifying questions are needed before generating a design prompt.
 

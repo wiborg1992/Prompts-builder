@@ -58,7 +58,7 @@ function getSpeakerColor(speaker: string): string {
 
 type WorkflowState = "idle" | "recording" | "processing";
 
-export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
+export function RecordingWorkspace({ sessionId, onPromptGenerated }: { sessionId: number; onPromptGenerated?: () => void }) {
   const queryClient = useQueryClient();
   const [language, setLanguage] = useState("en");
   const [workflowState, setWorkflowState] = useState<WorkflowState>("idle");
@@ -91,6 +91,7 @@ export function RecordingWorkspace({ sessionId }: { sessionId: number }) {
         queryClient.invalidateQueries({ queryKey: getGetSessionSummaryQueryKey(sessionId) });
         setWorkflowState("idle");
         setProcessingStep("");
+        onPromptGenerated?.();
       },
       onError: () => {
         setWorkflowState("idle");

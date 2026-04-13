@@ -147,6 +147,30 @@ export const DeleteContextItemParams = zod.object({
 });
 
 /**
+ * @summary Check if clarifying questions are needed before generating a prompt
+ */
+export const ClarifyPromptParams = zod.object({
+  sessionId: zod.coerce.number(),
+});
+
+export const ClarifyPromptBody = zod.object({
+  instruction: zod
+    .string()
+    .nullish()
+    .describe(
+      "Optional user instruction to consider during clarification check",
+    ),
+});
+
+export const ClarifyPromptResponse = zod.object({
+  questions: zod
+    .array(zod.string())
+    .describe(
+      "Clarifying questions the user should answer before generating (may be empty)",
+    ),
+});
+
+/**
  * @summary List generated prompts for a session
  */
 export const ListPromptsParams = zod.object({
@@ -184,6 +208,17 @@ export const GeneratePromptBody = zod.object({
     .string()
     .nullish()
     .describe("Optional user instruction to guide the prompt generation"),
+  clarifications: zod
+    .array(
+      zod.object({
+        question: zod.string(),
+        answer: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Optional answers to clarifying questions asked before generation",
+    ),
 });
 
 /**

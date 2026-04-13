@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ClarifyPromptBody,
+  ClarifyPromptResponse,
   ContextItem,
   CreateContextItemBody,
   CreateSessionBody,
@@ -889,6 +891,93 @@ export const useDeleteContextItem = <
   TContext
 > => {
   return useMutation(getDeleteContextItemMutationOptions(options));
+};
+
+/**
+ * @summary Check if clarifying questions are needed before generating a prompt
+ */
+export const getClarifyPromptUrl = (sessionId: number) => {
+  return `/api/sessions/${sessionId}/prompts/clarify`;
+};
+
+export const clarifyPrompt = async (
+  sessionId: number,
+  clarifyPromptBody?: ClarifyPromptBody,
+  options?: RequestInit,
+): Promise<ClarifyPromptResponse> => {
+  return customFetch<ClarifyPromptResponse>(getClarifyPromptUrl(sessionId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(clarifyPromptBody),
+  });
+};
+
+export const getClarifyPromptMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clarifyPrompt>>,
+    TError,
+    { sessionId: number; data: BodyType<ClarifyPromptBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clarifyPrompt>>,
+  TError,
+  { sessionId: number; data: BodyType<ClarifyPromptBody> },
+  TContext
+> => {
+  const mutationKey = ["clarifyPrompt"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clarifyPrompt>>,
+    { sessionId: number; data: BodyType<ClarifyPromptBody> }
+  > = (props) => {
+    const { sessionId, data } = props ?? {};
+
+    return clarifyPrompt(sessionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClarifyPromptMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clarifyPrompt>>
+>;
+export type ClarifyPromptMutationBody = BodyType<ClarifyPromptBody>;
+export type ClarifyPromptMutationError = ErrorType<void>;
+
+/**
+ * @summary Check if clarifying questions are needed before generating a prompt
+ */
+export const useClarifyPrompt = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clarifyPrompt>>,
+    TError,
+    { sessionId: number; data: BodyType<ClarifyPromptBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clarifyPrompt>>,
+  TError,
+  { sessionId: number; data: BodyType<ClarifyPromptBody> },
+  TContext
+> => {
+  return useMutation(getClarifyPromptMutationOptions(options));
 };
 
 /**

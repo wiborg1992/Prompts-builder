@@ -182,6 +182,79 @@ export interface GenerateResult {
   suggestedFiles: SuggestedFile[];
 }
 
+export interface ClarificationAnswer {
+  question: string;
+  answer: string;
+}
+
+const CLARIFY_SYSTEM_PROMPT = `You analyze design session materials to decide if clarifying questions are needed before generating a design prompt.
+
+Review the transcript and context items. Ask 1–3 short, specific questions ONLY when you are genuinely uncertain about something that would significantly change the output — for example:
+- The primary deliverable type if not mentioned (screen design? journey map? service blueprint?)
+- The target user if completely absent from the materials
+- A critical constraint that could go two very different directions
+
+Do NOT ask if:
+- The intent is reasonably clear from the materials
+- The question is just nice-to-know but wouldn't change the prompt meaningfully
+- The topic is already covered in the transcript or context
+
+Respond with JSON only. No preamble. No explanation outside the JSON.
+{"questions": ["...","..."]}
+If no clarification is needed: {"questions": []}
+Maximum 3 questions. Each question must be under 15 words.`;
+
+export async function checkClarification(
+  contextItems: ContextItem[],
+  transcriptSegments: TranscriptSegment[],
+  instruction: string | null | undefined
+): Promise<string[]> {
+  const sections: string[] = [];
+
+  if (transcriptSegments.length > 0) {
+    const transcriptText = transcriptSegments
+      .map((s) => `[${s.speaker}] ${s.text}`)
+      .join("\n");
+    sections.push(`<meeting_transcript>\n${transcriptText}\n</meeting_transcript>`);
+  }
+
+  for (const item of contextItems) {
+    const label = item.label ? ` label="${escapeXmlAttr(item.label)}"` : "";
+    const typeTag = item.type.toLowerCase();
+    if ((item.type === "file" || item.type === "image") && item.fileUrl) {
+      const displayName = item.filename || item.fileUrl.split("/").pop() || "unknown";
+      sections.push(`<context_item type="${typeTag}"${label} filename="${escapeXmlAttr(displayName)}" />`);
+    } else {
+      sections.push(`<context_item type="${typeTag}"${label}>\n${item.content?.slice(0, 400)}\n</context_item>`);
+    }
+  }
+
+  const userMessage = `<session_materials>\n${sections.join("\n\n")}\n</session_materials>${instruction ? `\n\n<user_instruction>${instruction}</user_instruction>` : ""}
+
+Should I ask the user any clarifying questions before generating the design prompt? Respond with JSON only.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4.1-mini",
+    max_completion_tokens: 256,
+    messages: [
+      { role: "system", content: CLARIFY_SYSTEM_PROMPT },
+      { role: "user", content: userMessage },
+    ],
+    response_format: { type: "json_object" },
+  });
+
+  try {
+    const raw = response.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.questions)) {
+      return parsed.questions.filter((q: unknown) => typeof q === "string").slice(0, 3);
+    }
+  } catch {
+    // Fall through to return empty
+  }
+  return [];
+}
+
 function parseSuggestedFiles(raw: string): { content: string; suggestedFiles: SuggestedFile[] } {
   const match = raw.match(/<suggested_files>\s*([\s\S]*?)\s*<\/suggested_files>/);
   if (!match) {
@@ -211,7 +284,8 @@ function parseSuggestedFiles(raw: string): { content: string; suggestedFiles: Su
 export async function generateDesignPrompt(
   contextItems: ContextItem[],
   transcriptSegments: TranscriptSegment[],
-  instruction: string | null | undefined
+  instruction: string | null | undefined,
+  clarifications?: ClarificationAnswer[] | null
 ): Promise<GenerateResult> {
   if (contextItems.length === 0 && transcriptSegments.length === 0) {
     throw new Error("No context or transcript available to generate a prompt from.");
@@ -258,9 +332,17 @@ export async function generateDesignPrompt(
 
   const contextBlock = sections.join("\n\n");
 
+  const clarificationsBlock =
+    clarifications && clarifications.length > 0
+      ? `\n\n<clarifications>\n${clarifications
+          .filter((c) => c.answer?.trim())
+          .map((c) => `Q: ${c.question}\nA: ${c.answer}`)
+          .join("\n\n")}\n</clarifications>`
+      : "";
+
   const userMessage = instruction
-    ? `<session_materials>\n${contextBlock}\n</session_materials>\n\n<user_instruction>\n${instruction}\n</user_instruction>\n\nCompose a structured design prompt based on these materials.`
-    : `<session_materials>\n${contextBlock}\n</session_materials>\n\nCompose a structured design prompt based on these materials.`;
+    ? `<session_materials>\n${contextBlock}\n</session_materials>${clarificationsBlock}\n\n<user_instruction>\n${instruction}\n</user_instruction>\n\nCompose a structured design prompt based on these materials.`
+    : `<session_materials>\n${contextBlock}\n</session_materials>${clarificationsBlock}\n\nCompose a structured design prompt based on these materials.`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",

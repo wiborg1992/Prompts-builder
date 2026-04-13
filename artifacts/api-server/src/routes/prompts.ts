@@ -10,7 +10,7 @@ import {
   UpdatePromptBody,
   DeletePromptParams,
 } from "@workspace/api-zod";
-import { generateDesignPrompt } from "../lib/prompt-generator";
+import { generateDesignPrompt, checkClarification } from "../lib/prompt-generator";
 
 const router: IRouter = Router();
 
@@ -30,6 +30,40 @@ router.get("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
   res.json(prompts);
 });
 
+router.post("/sessions/:sessionId/prompts/clarify", async (req, res): Promise<void> => {
+  const params = GeneratePromptParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const body = GeneratePromptBody.safeParse(req.body ?? {});
+  const instruction = body.success ? body.data.instruction : null;
+
+  const contextItems = await db
+    .select()
+    .from(contextItemsTable)
+    .where(and(
+      eq(contextItemsTable.sessionId, params.data.sessionId),
+      notInArray(contextItemsTable.type, ["transcript"])
+    ))
+    .orderBy(contextItemsTable.createdAt);
+
+  const transcriptSegments = await db
+    .select()
+    .from(transcriptSegmentsTable)
+    .where(eq(transcriptSegmentsTable.sessionId, params.data.sessionId))
+    .orderBy(transcriptSegmentsTable.createdAt);
+
+  if (contextItems.length === 0 && transcriptSegments.length === 0) {
+    res.status(400).json({ error: "No context or transcript in this session." });
+    return;
+  }
+
+  const questions = await checkClarification(contextItems, transcriptSegments, instruction ?? null);
+  res.json({ questions });
+});
+
 router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
   const params = GeneratePromptParams.safeParse(req.params);
   if (!params.success) {
@@ -39,6 +73,7 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
 
   const body = GeneratePromptBody.safeParse(req.body ?? {});
   const instruction = body.success ? body.data.instruction : null;
+  const clarifications = body.success ? (body.data.clarifications ?? null) : null;
 
   const contextItems = await db
     .select()
@@ -70,7 +105,12 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
   const latestPrompt = existingPrompts[0] ?? null;
   const nextVersion = latestPrompt ? latestPrompt.version + 1 : 1;
 
-  const result = await generateDesignPrompt(contextItems, transcriptSegments, instruction ?? null);
+  const result = await generateDesignPrompt(
+    contextItems,
+    transcriptSegments,
+    instruction ?? null,
+    clarifications as Array<{ question: string; answer: string }> | null
+  );
 
   const [prompt] = await db
     .insert(generatedPromptsTable)

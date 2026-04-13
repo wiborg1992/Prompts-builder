@@ -105,12 +105,32 @@ export interface GeneratedPrompt {
   updatedAt: string;
 }
 
+export interface ClarifyPromptBody {
+  /**
+   * Optional user instruction to consider during clarification check
+   * @nullable
+   */
+  instruction?: string | null;
+}
+
+export interface ClarifyPromptResponse {
+  /** Clarifying questions the user should answer before generating (may be empty) */
+  questions: string[];
+}
+
+export interface ClarificationAnswer {
+  question: string;
+  answer: string;
+}
+
 export interface GeneratePromptBody {
   /**
    * Optional user instruction to guide the prompt generation
    * @nullable
    */
   instruction?: string | null;
+  /** Optional answers to clarifying questions asked before generation */
+  clarifications?: ClarificationAnswer[];
 }
 
 export interface UpdatePromptBody {

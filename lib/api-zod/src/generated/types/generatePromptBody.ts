@@ -5,6 +5,7 @@
  * Context-driven design prompt generation API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClarificationAnswer } from "./clarificationAnswer";
 
 export interface GeneratePromptBody {
   /**
@@ -12,4 +13,6 @@ export interface GeneratePromptBody {
    * @nullable
    */
   instruction?: string | null;
+  /** Optional answers to clarifying questions asked before generation */
+  clarifications?: ClarificationAnswer[];
 }

@@ -5,21 +5,13 @@ import {
   getGetSessionQueryKey,
   useGetSessionSummary,
   getGetSessionSummaryQueryKey,
-  useListContextItems,
-  getListContextItemsQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Loader2, Mic, FolderOpen, Sparkles, ClipboardList } from "lucide-react";
+import { ArrowLeft, Loader2, Mic, FolderOpen, Sparkles } from "lucide-react";
 import { RecordingWorkspace } from "@/components/session/recording-workspace";
 import { ContextPanel } from "@/components/session/context-panel";
 import { PromptPanel } from "@/components/session/prompt-panel";
-import { SessionBriefWizard } from "@/components/session/session-brief-wizard";
-import { useState, useEffect } from "react";
-
-function briefKey(sessionId: number) {
-  return `prompt-studio-brief-done-${sessionId}`;
-}
 
 export default function SessionWorkspace() {
   const params = useParams();
@@ -38,28 +30,6 @@ export default function SessionWorkspace() {
       queryKey: getGetSessionSummaryQueryKey(sessionId),
     },
   });
-
-  const { data: contextItems, isLoading: contextLoading } = useListContextItems(sessionId, {
-    query: {
-      enabled: !!sessionId,
-      queryKey: getListContextItemsQueryKey(sessionId),
-    },
-  });
-
-  const [showWizard, setShowWizard] = useState(false);
-
-  useEffect(() => {
-    if (contextLoading || !sessionId) return;
-    const alreadyDone = localStorage.getItem(briefKey(sessionId)) === "true";
-    if (!alreadyDone && Array.isArray(contextItems) && contextItems.length === 0) {
-      setShowWizard(true);
-    }
-  }, [contextLoading, contextItems, sessionId]);
-
-  const dismissWizard = () => {
-    localStorage.setItem(briefKey(sessionId), "true");
-    setShowWizard(false);
-  };
 
   if (sessionLoading) {
     return (
@@ -82,14 +52,6 @@ export default function SessionWorkspace() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {showWizard && (
-        <SessionBriefWizard
-          sessionId={sessionId}
-          onComplete={dismissWizard}
-          onSkip={dismissWizard}
-        />
-      )}
-
       <header className="flex-none h-14 border-b border-border bg-card/30 backdrop-blur-md flex items-center justify-between px-4 lg:px-6">
         <div className="flex items-center gap-4">
           <Link href="/">
@@ -108,32 +70,20 @@ export default function SessionWorkspace() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-xs font-mono text-muted-foreground flex items-center gap-2">
-            {summary && (
-              <>
-                {(summary.transcriptSegmentCount ?? 0) > 0 && (
-                  <>
-                    <span data-testid="text-transcript-count">{summary.transcriptSegmentCount} Transcript</span>
-                    <span>&bull;</span>
-                  </>
-                )}
-                <span data-testid="text-context-count">{summary.contextCount} Context</span>
-                <span>&bull;</span>
-                <span data-testid="text-prompt-count">{summary.promptCount} Prompts</span>
-              </>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-            onClick={() => setShowWizard(true)}
-            title="Genåbn Session Brief"
-          >
-            <ClipboardList className="w-3.5 h-3.5" />
-            Session Brief
-          </Button>
+        <div className="text-xs font-mono text-muted-foreground flex items-center gap-2">
+          {summary && (
+            <>
+              {(summary.transcriptSegmentCount ?? 0) > 0 && (
+                <>
+                  <span data-testid="text-transcript-count">{summary.transcriptSegmentCount} Transcript</span>
+                  <span>&bull;</span>
+                </>
+              )}
+              <span data-testid="text-context-count">{summary.contextCount} Context</span>
+              <span>&bull;</span>
+              <span data-testid="text-prompt-count">{summary.promptCount} Prompts</span>
+            </>
+          )}
         </div>
       </header>
 

@@ -60,11 +60,11 @@ function SuggestedFilesBox({ files }: { files: SuggestedFile[] }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-amber-400 mb-1 flex items-center gap-1.5">
-            Vedhæft disse filer i dit AI-kodningsværktøj
+            Attach these files in your AI coding tool
             <Info className="w-3 h-3 opacity-70" />
           </p>
           <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-            Når du indsætter prompten i Cursor, Copilot eller et andet AI-værktøj, bør du sende disse filer med som kontekst:
+            When pasting the prompt into Cursor, Copilot, or another AI tool, send these files along as context:
           </p>
           <ul className="space-y-2">
             {files.map((f, i) => (
@@ -174,6 +174,7 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
       data: {
         instruction: instruction.trim() || undefined,
         clarifications: clarifications.length > 0 ? clarifications : undefined,
+        refine: true,
       },
     });
   };
@@ -255,9 +256,9 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
             <div className="flex items-start gap-2">
               <HelpCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs font-semibold text-primary mb-0.5">Et par afklarende spørgsmål</p>
+                <p className="text-xs font-semibold text-primary mb-0.5">A few clarifying questions</p>
                 <p className="text-xs text-muted-foreground">
-                  Besvar dem for et mere præcist resultat — eller spring over og generer nu.
+                  Answer them for a more precise result — or skip and generate now.
                 </p>
               </div>
             </div>
@@ -266,7 +267,7 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
                 <div key={i} className="space-y-1.5">
                   <label className="text-xs text-foreground font-medium">{q}</label>
                   <Input
-                    placeholder="Dit svar (valgfrit)"
+                    placeholder="Your answer (optional)"
                     value={answers[i] ?? ""}
                     onChange={(e) => setAnswers((prev) => ({ ...prev, [i]: e.target.value }))}
                     className="text-sm"
@@ -305,14 +306,14 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
                 disabled={isWorking}
                 className="text-muted-foreground text-sm"
               >
-                Spring over
+                Skip
               </Button>
             </div>
           </div>
         ) : (
           <div className="flex gap-2">
             <Input
-              placeholder="Valgfri instruktion (f.eks. 'Fokuser på tilgængelighed')"
+              placeholder="Optional instruction (e.g. 'Focus on accessibility')"
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
               className="flex-1"
@@ -334,14 +335,14 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
               {panelState === "checking" ? (
                 <span className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 animate-pulse" />
-                  Tjekker...
+                  Checking...
                 </span>
               ) : panelState === "generating" ? (
                 <span className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 animate-pulse" />
-                  Genererer...
+                  Generating...
                 </span>
-              ) : "Generer"}
+              ) : "Generate"}
             </Button>
           </div>
         )}
@@ -355,7 +356,7 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
             }}
           >
             <SelectTrigger className="w-full bg-background border-border/60" data-testid="select-prompt-version">
-              <SelectValue placeholder="Vælg en promptversion" />
+              <SelectValue placeholder="Select a prompt version" />
             </SelectTrigger>
             <SelectContent>
               {sortedPrompts.map((prompt, index) => (
@@ -365,7 +366,7 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
                     <span className="text-muted-foreground">—</span>
                     <span>{format(new Date(prompt.createdAt), "MMM d, HH:mm")}</span>
                     {index === 0 && (
-                      <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">Seneste</span>
+                      <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">Latest</span>
                     )}
                     {prompt.instruction && (
                       <span className="text-xs text-muted-foreground truncate max-w-[160px]">· {prompt.instruction}</span>
@@ -464,8 +465,8 @@ export function PromptPanel({ sessionId, onPromptGenerated, forcedSelectedId }: 
           ) : (
             <div className="text-center py-24 px-4 border border-dashed border-border rounded-xl">
               <Sparkles className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="text-muted-foreground text-sm">Ingen prompts genereret endnu.</p>
-              <p className="text-muted-foreground text-xs mt-1">Tilføj kontekst og klik på Generate for at komponere en prompt.</p>
+              <p className="text-muted-foreground text-sm">No prompts generated yet.</p>
+              <p className="text-muted-foreground text-xs mt-1">Add context and click Generate to compose a prompt.</p>
             </div>
           )}
         </div>

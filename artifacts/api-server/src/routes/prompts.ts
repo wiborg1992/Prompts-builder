@@ -74,6 +74,7 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
   const body = GeneratePromptBody.safeParse(req.body ?? {});
   const instruction = body.success ? body.data.instruction : null;
   const clarifications = body.success ? (body.data.clarifications ?? null) : null;
+  const isRefine = body.success ? (body.data.refine ?? false) : false;
 
   const contextItems = await db
     .select()
@@ -114,7 +115,8 @@ router.post("/sessions/:sessionId/prompts", async (req, res): Promise<void> => {
     transcriptSegments,
     instruction ?? null,
     clarifications as Array<{ question: string; answer: string }> | null,
-    previousPromptData
+    previousPromptData,
+    isRefine
   );
 
   const [prompt] = await db

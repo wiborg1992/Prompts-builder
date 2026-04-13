@@ -219,6 +219,12 @@ export const GeneratePromptBody = zod.object({
     .describe(
       "Optional answers to clarifying questions asked before generation",
     ),
+  refine: zod
+    .boolean()
+    .optional()
+    .describe(
+      "If true, build on the previous prompt as a full updated spec rather than an incremental change list",
+    ),
 });
 
 /**

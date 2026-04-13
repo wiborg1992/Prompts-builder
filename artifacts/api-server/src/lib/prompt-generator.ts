@@ -196,6 +196,18 @@ export interface PreviousPrompt {
   content: string;
 }
 
+const REFINE_SYSTEM_PROMPT = `You are a design prompt architect. You are given a PREVIOUS PROMPT (a full design specification) and a REFINEMENT INSTRUCTION from the user. Your task is to produce a NEW, COMPLETE, UPDATED design prompt.
+
+Rules:
+- Use the previous prompt as the base
+- Apply the instruction to modify, expand, or redirect the relevant sections
+- Keep all sections that are unaffected by the instruction
+- The output MUST be a complete, self-contained design prompt — NOT a change list or delta
+- Follow the same 5-section structure: DESIGN GUIDELINES, PRIORITIZATION SUMMARY, INPUT CONTEXT, SYSTEM INSTRUCTIONS, OUTPUT CONSTRAINTS
+- After the five sections, output the <suggested_files> block in the same format as before
+
+Write in the language of the previous prompt or the instruction — whichever is more specific.`;
+
 const CHANGE_SYSTEM_PROMPT = `You are a design change request generator for an iterative workshop flow. You will receive:
 1. The PREVIOUS PROMPT — the full design specification used to build the current prototype
 2. NEW SESSION MATERIALS — a transcript of a follow-up discussion where the team reviews the prototype and proposes improvements
@@ -313,7 +325,8 @@ export async function generateDesignPrompt(
   transcriptSegments: TranscriptSegment[],
   instruction: string | null | undefined,
   clarifications?: ClarificationAnswer[] | null,
-  previousPrompt?: PreviousPrompt | null
+  previousPrompt?: PreviousPrompt | null,
+  isRefine?: boolean
 ): Promise<GenerateResult> {
   if (contextItems.length === 0 && transcriptSegments.length === 0) {
     throw new Error("No context or transcript available to generate a prompt from.");
@@ -368,29 +381,49 @@ export async function generateDesignPrompt(
           .join("\n\n")}\n</clarifications>`
       : "";
 
-  const isChangeMode = !!previousPrompt;
+  const isChangeMode = !!previousPrompt && !isRefine;
+  const isRefineMode = !!previousPrompt && !!isRefine;
 
-  const userMessage = isChangeMode
-    ? [
-        `<previous_prompt version="${previousPrompt!.version}">`,
-        previousPrompt!.content,
-        `</previous_prompt>`,
-        ``,
-        `<new_session_materials>`,
-        contextBlock,
-        `</new_session_materials>${clarificationsBlock}`,
-        instruction ? `\n<user_instruction>\n${instruction}\n</user_instruction>` : "",
-        `\nGenerate a concise change request based on the new session materials.`,
-      ].join("\n")
-    : instruction
-    ? `<session_materials>\n${contextBlock}\n</session_materials>${clarificationsBlock}\n\n<user_instruction>\n${instruction}\n</user_instruction>\n\nCompose a structured design prompt based on these materials.`
-    : `<session_materials>\n${contextBlock}\n</session_materials>${clarificationsBlock}\n\nCompose a structured design prompt based on these materials.`;
+  let systemPrompt: string;
+  let userMessage: string;
+
+  if (isRefineMode) {
+    systemPrompt = REFINE_SYSTEM_PROMPT;
+    userMessage = [
+      `<previous_prompt version="${previousPrompt!.version}">`,
+      previousPrompt!.content,
+      `</previous_prompt>`,
+      ``,
+      instruction ? `<refinement_instruction>\n${instruction}\n</refinement_instruction>` : "",
+      contextBlock ? `\n<additional_context>\n${contextBlock}\n</additional_context>` : "",
+      clarificationsBlock,
+      `\nProduce a complete, updated design prompt incorporating the refinement instruction.`,
+    ].filter(Boolean).join("\n")
+  } else if (isChangeMode) {
+    systemPrompt = CHANGE_SYSTEM_PROMPT;
+    userMessage = [
+      `<previous_prompt version="${previousPrompt!.version}">`,
+      previousPrompt!.content,
+      `</previous_prompt>`,
+      ``,
+      `<new_session_materials>`,
+      contextBlock,
+      `</new_session_materials>${clarificationsBlock}`,
+      instruction ? `\n<user_instruction>\n${instruction}\n</user_instruction>` : "",
+      `\nGenerate a concise change request based on the new session materials.`,
+    ].join("\n");
+  } else {
+    systemPrompt = SYSTEM_PROMPT;
+    userMessage = instruction
+      ? `<session_materials>\n${contextBlock}\n</session_materials>${clarificationsBlock}\n\n<user_instruction>\n${instruction}\n</user_instruction>\n\nCompose a structured design prompt based on these materials.`
+      : `<session_materials>\n${contextBlock}\n</session_materials>${clarificationsBlock}\n\nCompose a structured design prompt based on these materials.`;
+  }
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",
     max_completion_tokens: 4096,
     messages: [
-      { role: "system", content: isChangeMode ? CHANGE_SYSTEM_PROMPT : SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
     ],
   });

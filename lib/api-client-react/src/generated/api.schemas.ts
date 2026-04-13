@@ -131,6 +131,8 @@ export interface GeneratePromptBody {
   instruction?: string | null;
   /** Optional answers to clarifying questions asked before generation */
   clarifications?: ClarificationAnswer[];
+  /** If true, build on the previous prompt as a full updated spec rather than an incremental change list */
+  refine?: boolean;
 }
 
 export interface UpdatePromptBody {

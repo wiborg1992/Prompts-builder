@@ -759,6 +759,9 @@ components:
           items:
             $ref: "#/components/schemas/ClarificationAnswer"
           description: Optional answers to clarifying questions asked before generation
+        refine:
+          type: boolean
+          description: If true, build on the previous prompt as a full updated spec rather than an incremental change list
 
     UpdatePromptBody:
       type: object
